@@ -1,34 +1,46 @@
-# Pigeons
+# Pigeon Game
 
-A project about pigeons.
+A fun browser-based arcade game where you control a pigeon collecting breadcrumbs while avoiding cats!
 
-## Overview
+## Play Now
 
-This repository contains the pigeons project.
+Simply open `index.html` in your browser, or visit the GitHub Pages site (if enabled).
 
-## Getting Started
+## How to Play
 
-### Prerequisites
+- **Move**: Use Arrow Keys or WASD
+- **Goal**: Collect breadcrumbs to score points
+- **Avoid**: Cats that patrol the area - they'll end your game!
 
-- List any prerequisites here
+The game gets progressively harder as your score increases.
 
-### Installation
+## Features
+
+- Zero dependencies - pure HTML, CSS, and JavaScript
+- Works offline
+- High score saved locally
+- Mobile-friendly responsive design
+- No build step required
+
+## Local Development
 
 ```bash
 # Clone the repository
 git clone https://github.com/sweis/pigeons.git
 cd pigeons
 
-# Add installation steps here
+# Open in browser
+open index.html
+# or on Linux
+xdg-open index.html
 ```
 
-## Usage
+## Tech Stack
 
-Add usage instructions here.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+- HTML5 Canvas for rendering
+- Vanilla JavaScript for game logic
+- CSS3 for styling
+- LocalStorage for high score persistence
 
 ## License
 

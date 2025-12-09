@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pigeon Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 0 10px;
+        }
+
+        .score, .high-score {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .high-score {
+            color: #667eea;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 10px;
+            background: #87CEEB;
+        }
+
+        .controls {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .instructions {
+            margin-top: 15px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+        }
+
+        .game-over h2 {
+            margin-bottom: 10px;
+        }
+
+        .game-over p {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="high-score">Best: <span id="highScore">0</span></div>
+        </div>
+        <div style="position: relative;">
+            <canvas id="gameCanvas" width="400" height="500"></canvas>
+            <div class="game-over" id="gameOver">
+                <h2>Game Over!</h2>
+                <p>Score: <span id="finalScore">0</span></p>
+                <button class="btn" onclick="startGame()">Play Again</button>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="btn" id="startBtn" onclick="startGame()">Start Game</button>
+        </div>
+        <div class="instructions">
+            Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move<br>
+            Collect breadcrumbs, avoid cats!
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const highScoreElement = document.getElementById('highScore');
+        const gameOverElement = document.getElementById('gameOver');
+        const finalScoreElement = document.getElementById('finalScore');
+        const startBtn = document.getElementById('startBtn');
+
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let highScore = localStorage.getItem('pigeonHighScore') || 0;
+        highScoreElement.textContent = highScore;
+
+        // Pigeon
+        const pigeon = {
+            x: 200,
+            y: 400,
+            width: 40,
+            height: 40,
+            speed: 5,
+            dx: 0,
+            dy: 0
+        };
+
+        // Game objects
+        let breadcrumbs = [];
+        let cats = [];
+        let lastBreadcrumbTime = 0;
+        let lastCatTime = 0;
+
+        // Input handling
+        const keys = {};
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Draw pigeon (simple but cute)
+        function drawPigeon(x, y) {
+            ctx.save();
+            ctx.translate(x + pigeon.width / 2, y + pigeon.height / 2);
+
+            // Body
+            ctx.fillStyle = '#708090';
+            ctx.beginPath();
+            ctx.ellipse(0, 5, 18, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#607080';
+            ctx.beginPath();
+            ctx.arc(0, -10, 12, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Neck shimmer
+            ctx.fillStyle = '#9370DB';
+            ctx.beginPath();
+            ctx.ellipse(0, -2, 8, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eye
+            ctx.fillStyle = '#FF6B35';
+            ctx.beginPath();
+            ctx.arc(5, -12, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(5, -12, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Beak
+            ctx.fillStyle = '#FFB347';
+            ctx.beginPath();
+            ctx.moveTo(10, -8);
+            ctx.lineTo(18, -6);
+            ctx.lineTo(10, -4);
+            ctx.closePath();
+            ctx.fill();
+
+            // Wings
+            ctx.fillStyle = '#5A6A7A';
+            ctx.beginPath();
+            ctx.ellipse(-10, 8, 8, 12, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(10, 8, 8, 12, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw breadcrumb
+        function drawBreadcrumb(crumb) {
+            ctx.fillStyle = '#DEB887';
+            ctx.beginPath();
+            ctx.arc(crumb.x, crumb.y, crumb.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#D2691E';
+            ctx.beginPath();
+            ctx.arc(crumb.x - 2, crumb.y - 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Draw cat (enemy)
+        function drawCat(cat) {
+            ctx.save();
+            ctx.translate(cat.x, cat.y);
+
+            // Body
+            ctx.fillStyle = '#FF6B35';
+            ctx.beginPath();
+            ctx.ellipse(0, 10, 20, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#FF6B35';
+            ctx.beginPath();
+            ctx.arc(0, -8, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ears
+            ctx.beginPath();
+            ctx.moveTo(-12, -18);
+            ctx.lineTo(-8, -30);
+            ctx.lineTo(-2, -18);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(12, -18);
+            ctx.lineTo(8, -30);
+            ctx.lineTo(2, -18);
+            ctx.closePath();
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#90EE90';
+            ctx.beginPath();
+            ctx.ellipse(-6, -10, 4, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(6, -10, 4, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pupils
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.ellipse(-6, -10, 2, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(6, -10, 2, 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Nose
+            ctx.fillStyle = '#FF69B4';
+            ctx.beginPath();
+            ctx.moveTo(0, -4);
+            ctx.lineTo(-3, 0);
+            ctx.lineTo(3, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw background
+        function drawBackground() {
+            // Sky gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#E0F6FF');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Ground
+            ctx.fillStyle = '#90EE90';
+            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+
+            // Grass details
+            ctx.fillStyle = '#7CCD7C';
+            for (let i = 0; i < canvas.width; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - 60);
+                ctx.lineTo(i + 5, canvas.height - 70);
+                ctx.lineTo(i + 10, canvas.height - 60);
+                ctx.fill();
+            }
+
+            // Clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            drawCloud(50, 50);
+            drawCloud(200, 80);
+            drawCloud(320, 40);
+        }
+
+        function drawCloud(x, y) {
+            ctx.beginPath();
+            ctx.arc(x, y, 20, 0, Math.PI * 2);
+            ctx.arc(x + 25, y - 10, 25, 0, Math.PI * 2);
+            ctx.arc(x + 50, y, 20, 0, Math.PI * 2);
+            ctx.arc(x + 25, y + 5, 15, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Spawn breadcrumb
+        function spawnBreadcrumb() {
+            breadcrumbs.push({
+                x: Math.random() * (canvas.width - 40) + 20,
+                y: Math.random() * (canvas.height - 150) + 50,
+                size: 8 + Math.random() * 6
+            });
+        }
+
+        // Spawn cat
+        function spawnCat() {
+            const side = Math.random() < 0.5 ? 'left' : 'right';
+            cats.push({
+                x: side === 'left' ? -30 : canvas.width + 30,
+                y: canvas.height - 85,
+                speed: 1.5 + score / 50,
+                direction: side === 'left' ? 1 : -1
+            });
+        }
+
+        // Check collision
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Update game
+        function update(timestamp) {
+            // Handle input
+            pigeon.dx = 0;
+            pigeon.dy = 0;
+
+            if (keys['arrowleft'] || keys['a']) pigeon.dx = -pigeon.speed;
+            if (keys['arrowright'] || keys['d']) pigeon.dx = pigeon.speed;
+            if (keys['arrowup'] || keys['w']) pigeon.dy = -pigeon.speed;
+            if (keys['arrowdown'] || keys['s']) pigeon.dy = pigeon.speed;
+
+            // Move pigeon
+            pigeon.x += pigeon.dx;
+            pigeon.y += pigeon.dy;
+
+            // Keep pigeon in bounds
+            pigeon.x = Math.max(0, Math.min(canvas.width - pigeon.width, pigeon.x));
+            pigeon.y = Math.max(0, Math.min(canvas.height - pigeon.height - 40, pigeon.y));
+
+            // Spawn breadcrumbs
+            if (timestamp - lastBreadcrumbTime > 2000) {
+                spawnBreadcrumb();
+                lastBreadcrumbTime = timestamp;
+            }
+
+            // Spawn cats
+            const catInterval = Math.max(3000 - score * 50, 1500);
+            if (timestamp - lastCatTime > catInterval) {
+                spawnCat();
+                lastCatTime = timestamp;
+            }
+
+            // Update cats
+            cats.forEach(cat => {
+                cat.x += cat.speed * cat.direction;
+            });
+
+            // Remove off-screen cats
+            cats = cats.filter(cat => cat.x > -50 && cat.x < canvas.width + 50);
+
+            // Check breadcrumb collection
+            const pigeonRect = {
+                x: pigeon.x + 5,
+                y: pigeon.y + 5,
+                width: pigeon.width - 10,
+                height: pigeon.height - 10
+            };
+
+            breadcrumbs = breadcrumbs.filter(crumb => {
+                const crumbRect = {
+                    x: crumb.x - crumb.size,
+                    y: crumb.y - crumb.size,
+                    width: crumb.size * 2,
+                    height: crumb.size * 2
+                };
+
+                if (checkCollision(pigeonRect, crumbRect)) {
+                    score += 10;
+                    scoreElement.textContent = score;
+                    return false;
+                }
+                return true;
+            });
+
+            // Check cat collision
+            for (const cat of cats) {
+                const catRect = {
+                    x: cat.x - 20,
+                    y: cat.y - 20,
+                    width: 40,
+                    height: 50
+                };
+
+                if (checkCollision(pigeonRect, catRect)) {
+                    endGame();
+                    return;
+                }
+            }
+        }
+
+        // Draw game
+        function draw() {
+            drawBackground();
+
+            // Draw breadcrumbs
+            breadcrumbs.forEach(drawBreadcrumb);
+
+            // Draw cats
+            cats.forEach(drawCat);
+
+            // Draw pigeon
+            drawPigeon(pigeon.x, pigeon.y);
+        }
+
+        // Game loop
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+
+            update(timestamp);
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start game
+        function startGame() {
+            // Reset state
+            pigeon.x = 180;
+            pigeon.y = 400;
+            breadcrumbs = [];
+            cats = [];
+            score = 0;
+            scoreElement.textContent = score;
+            lastBreadcrumbTime = 0;
+            lastCatTime = 0;
+
+            gameOverElement.style.display = 'none';
+            startBtn.textContent = 'Restart';
+            gameRunning = true;
+
+            // Spawn initial breadcrumbs
+            for (let i = 0; i < 3; i++) {
+                spawnBreadcrumb();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // End game
+        function endGame() {
+            gameRunning = false;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('pigeonHighScore', highScore);
+                highScoreElement.textContent = highScore;
+            }
+
+            finalScoreElement.textContent = score;
+            gameOverElement.style.display = 'block';
+        }
+
+        // Initial draw
+        drawBackground();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.font = '24px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press Start to Play!', canvas.width / 2, canvas.height / 2);
+        drawPigeon(180, 300);
+    </script>
+</body>
+</html>
