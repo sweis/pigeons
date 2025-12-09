@@ -1,6 +1,6 @@
 # Pigeon Game
 
-A fun browser-based arcade game where you control a pigeon collecting breadcrumbs while avoiding cats!
+A fun browser-based arcade game where you control a pigeon collecting breadcrumbs while avoiding cats!.
 
 ## Play Now
 
