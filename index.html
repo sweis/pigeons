@@ -142,6 +142,23 @@
             background: rgba(0, 0, 0, 0.9);
             color: #fff;
         }
+
+        .jump-indicator {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            color: #4ade80;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .jump-indicator.cooldown {
+            color: #888;
+        }
     </style>
 </head>
 <body>
@@ -157,13 +174,15 @@
                 <p>Score: <span id="finalScore">0</span></p>
                 <button class="btn" onclick="Game.start()">Play Again</button>
             </div>
+            <div class="jump-indicator" id="jumpIndicator">SPACE to Jump</div>
         </div>
         <div class="controls">
             <button class="btn" id="startBtn" onclick="Game.start()">Start Game</button>
         </div>
         <div class="instructions">
-            Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move<br>
-            Collect breadcrumbs, avoid cats!
+            Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move |
+            <strong>SPACE</strong> to jump over cats<br>
+            Collect breadcrumbs, avoid cats, use trees for safety!
         </div>
     </div>
     <button class="debug-toggle" onclick="Game.toggleDebug()">Toggle Debug (F3)</button>
@@ -177,6 +196,9 @@
             TILE_HEIGHT: 32,
             GRID_WIDTH: 10,
             GRID_HEIGHT: 10,
+            NUM_TREES: 5,
+            JUMP_DURATION: 400,
+            JUMP_COOLDOWN: 1000,
             DEBUG: false
         };
 
@@ -236,7 +258,6 @@
         const GRASS_TILES = new Set();
         for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
             for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
-                // Use deterministic hash instead of random
                 const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
                 if ((hash - Math.floor(hash)) > 0.92) {
                     GRASS_TILES.add(`${x},${y}`);
@@ -247,18 +268,17 @@
         const Iso = {
             // Convert grid coordinates to screen coordinates
             toScreen(gridX, gridY, elevation = 0) {
-                const offsetX = 300; // Center offset
-                const offsetY = 100;
+                const offsetX = 300;
+                const offsetY = 80; // Adjusted for better centering
                 return {
                     x: offsetX + (gridX - gridY) * (CONFIG.TILE_WIDTH / 2),
                     y: offsetY + (gridX + gridY) * (CONFIG.TILE_HEIGHT / 2) - elevation
                 };
             },
 
-            // Convert screen coordinates to grid coordinates
             toGrid(screenX, screenY) {
                 const offsetX = 300;
-                const offsetY = 100;
+                const offsetY = 80;
                 const x = screenX - offsetX;
                 const y = screenY - offsetY;
                 return {
@@ -267,7 +287,6 @@
                 };
             },
 
-            // Get drawing order (for depth sorting)
             getDepth(gridX, gridY) {
                 return gridX + gridY;
             }
@@ -318,10 +337,8 @@
             },
 
             drawGround() {
-                // Draw ground tiles with slight variations
                 for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
                     for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
-                        // Checkerboard pattern with grass variations
                         const isLight = (x + y) % 2 === 0;
                         const variation = Math.sin(x * 3.7 + y * 2.3) * 10;
                         const baseGreen = isLight ? 130 : 115;
@@ -331,7 +348,6 @@
 
                         this.drawIsometricTile(x, y, color, border);
 
-                        // Add grass tufts (using pre-computed positions)
                         if (GRASS_TILES.has(`${x},${y}`)) {
                             this.drawGrassTuft(x, y);
                         }
@@ -367,18 +383,108 @@
                 this.ctx.restore();
             },
 
-            drawPigeon(gridX, gridY, direction = 1) {
-                const elevation = 5 + Math.sin(performance.now() / 150) * 2; // Bobbing
-                const pos = Iso.toScreen(gridX, gridY, elevation);
+            drawTree(gridX, gridY, hasCat = false, hasPigeon = false) {
+                const pos = Iso.toScreen(gridX, gridY);
 
                 // Shadow
-                this.drawShadow(gridX, gridY, 18, 9);
+                this.drawShadow(gridX, gridY, 25, 12);
+
+                this.ctx.save();
+                this.ctx.translate(pos.x, pos.y);
+
+                // Trunk
+                const trunkGrad = this.ctx.createLinearGradient(-8, 0, 8, 0);
+                trunkGrad.addColorStop(0, '#5D4037');
+                trunkGrad.addColorStop(0.5, '#8D6E63');
+                trunkGrad.addColorStop(1, '#4E342E');
+
+                this.ctx.fillStyle = trunkGrad;
+                this.ctx.fillRect(-8, -60, 16, 65);
+
+                // Trunk texture
+                this.ctx.strokeStyle = '#3E2723';
+                this.ctx.lineWidth = 1;
+                for (let i = 0; i < 5; i++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-6, -55 + i * 12);
+                    this.ctx.lineTo(-2, -50 + i * 12);
+                    this.ctx.stroke();
+                }
+
+                // Foliage layers (bottom to top)
+                const foliageColors = ['#2E7D32', '#388E3C', '#43A047', '#4CAF50'];
+
+                for (let layer = 0; layer < 3; layer++) {
+                    const y = -60 - layer * 20;
+                    const size = 35 - layer * 5;
+
+                    this.ctx.fillStyle = foliageColors[layer];
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, y - size);
+                    this.ctx.lineTo(size, y + 10);
+                    this.ctx.lineTo(-size, y + 10);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+
+                    // Highlight
+                    this.ctx.fillStyle = foliageColors[layer + 1] || '#66BB6A';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, y - size + 5);
+                    this.ctx.lineTo(size * 0.4, y);
+                    this.ctx.lineTo(-size * 0.3, y);
+                    this.ctx.closePath();
+                    this.ctx.fill();
+                }
+
+                // Show pigeon on tree
+                if (hasPigeon) {
+                    this.ctx.fillStyle = '#708090';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(0, -110, 12, 8, 0, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    // Head
+                    this.ctx.fillStyle = '#607080';
+                    this.ctx.beginPath();
+                    this.ctx.arc(8, -115, 6, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                // Show cat climbing
+                if (hasCat) {
+                    this.ctx.fillStyle = '#E85D04';
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(10, -30, 10, 8, 0.3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    // Head
+                    this.ctx.beginPath();
+                    this.ctx.arc(18, -35, 7, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    // Eyes
+                    this.ctx.fillStyle = '#90EE90';
+                    this.ctx.beginPath();
+                    this.ctx.arc(20, -36, 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                this.ctx.restore();
+            },
+
+            drawPigeon(gridX, gridY, direction = 1, isJumping = false, onTree = false) {
+                if (onTree) return; // Drawn as part of tree
+
+                const jumpHeight = isJumping ? 25 : 0;
+                const elevation = 5 + Math.sin(performance.now() / 150) * 2 + jumpHeight;
+                const pos = Iso.toScreen(gridX, gridY, elevation);
+
+                // Shadow (smaller when jumping)
+                const shadowScale = isJumping ? 0.6 : 1;
+                this.drawShadow(gridX, gridY, 18 * shadowScale, 9 * shadowScale);
 
                 this.ctx.save();
                 this.ctx.translate(pos.x, pos.y);
                 this.ctx.scale(direction, 1);
 
-                // Body (main shape with gradient)
+                // Body
                 const bodyGrad = this.ctx.createRadialGradient(0, 8, 5, 0, 8, 25);
                 bodyGrad.addColorStop(0, '#8899AA');
                 bodyGrad.addColorStop(0.5, '#6B7B8B');
@@ -389,13 +495,13 @@
                 this.ctx.ellipse(0, 8, 22, 16, 0.2, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Wing highlight
+                // Wing
                 this.ctx.fillStyle = '#5A6A7A';
                 this.ctx.beginPath();
                 this.ctx.ellipse(-5, 10, 12, 10, -0.3, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Wing feather details
+                // Wing feathers
                 this.ctx.strokeStyle = '#4A5A6A';
                 this.ctx.lineWidth = 1;
                 for (let i = 0; i < 4; i++) {
@@ -405,7 +511,7 @@
                     this.ctx.stroke();
                 }
 
-                // Neck with iridescent shimmer
+                // Neck shimmer
                 const neckGrad = this.ctx.createLinearGradient(-8, -5, 8, 5);
                 neckGrad.addColorStop(0, '#8B5CF6');
                 neckGrad.addColorStop(0.3, '#06B6D4');
@@ -427,25 +533,23 @@
                 this.ctx.arc(10, -12, 12, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Eye ring (orange)
+                // Eye ring
                 this.ctx.fillStyle = '#FF6B35';
                 this.ctx.beginPath();
                 this.ctx.arc(16, -14, 5, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Eye white
+                // Eye
                 this.ctx.fillStyle = '#FFF';
                 this.ctx.beginPath();
                 this.ctx.arc(16, -14, 3.5, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Pupil
                 this.ctx.fillStyle = '#1a1a1a';
                 this.ctx.beginPath();
                 this.ctx.arc(17, -14, 2, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Eye highlight
                 this.ctx.fillStyle = '#FFF';
                 this.ctx.beginPath();
                 this.ctx.arc(17.5, -15, 0.8, 0, Math.PI * 2);
@@ -460,7 +564,6 @@
                 this.ctx.closePath();
                 this.ctx.fill();
 
-                // Beak detail
                 this.ctx.fillStyle = '#E09030';
                 this.ctx.beginPath();
                 this.ctx.moveTo(20, -8);
@@ -469,7 +572,7 @@
                 this.ctx.closePath();
                 this.ctx.fill();
 
-                // Tail feathers
+                // Tail
                 this.ctx.fillStyle = '#4A5A6A';
                 this.ctx.beginPath();
                 this.ctx.moveTo(-18, 12);
@@ -486,42 +589,43 @@
                 this.ctx.closePath();
                 this.ctx.fill();
 
-                // Feet
-                this.ctx.strokeStyle = '#CC6644';
-                this.ctx.lineWidth = 2;
-                this.ctx.lineCap = 'round';
+                // Feet (tucked when jumping)
+                if (!isJumping) {
+                    this.ctx.strokeStyle = '#CC6644';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.lineCap = 'round';
 
-                // Left foot
-                this.ctx.beginPath();
-                this.ctx.moveTo(-5, 20);
-                this.ctx.lineTo(-8, 26);
-                this.ctx.moveTo(-8, 26);
-                this.ctx.lineTo(-12, 28);
-                this.ctx.moveTo(-8, 26);
-                this.ctx.lineTo(-6, 29);
-                this.ctx.moveTo(-8, 26);
-                this.ctx.lineTo(-4, 28);
-                this.ctx.stroke();
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-5, 20);
+                    this.ctx.lineTo(-8, 26);
+                    this.ctx.moveTo(-8, 26);
+                    this.ctx.lineTo(-12, 28);
+                    this.ctx.moveTo(-8, 26);
+                    this.ctx.lineTo(-6, 29);
+                    this.ctx.moveTo(-8, 26);
+                    this.ctx.lineTo(-4, 28);
+                    this.ctx.stroke();
 
-                // Right foot
-                this.ctx.beginPath();
-                this.ctx.moveTo(5, 20);
-                this.ctx.lineTo(8, 26);
-                this.ctx.moveTo(8, 26);
-                this.ctx.lineTo(4, 28);
-                this.ctx.moveTo(8, 26);
-                this.ctx.lineTo(10, 29);
-                this.ctx.moveTo(8, 26);
-                this.ctx.lineTo(12, 28);
-                this.ctx.stroke();
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(5, 20);
+                    this.ctx.lineTo(8, 26);
+                    this.ctx.moveTo(8, 26);
+                    this.ctx.lineTo(4, 28);
+                    this.ctx.moveTo(8, 26);
+                    this.ctx.lineTo(10, 29);
+                    this.ctx.moveTo(8, 26);
+                    this.ctx.lineTo(12, 28);
+                    this.ctx.stroke();
+                }
 
                 this.ctx.restore();
             },
 
-            drawCat(gridX, gridY, direction = 1) {
+            drawCat(gridX, gridY, direction = 1, isClimbing = false) {
+                if (isClimbing) return; // Drawn as part of tree
+
                 const pos = Iso.toScreen(gridX, gridY, 0);
 
-                // Shadow
                 this.drawShadow(gridX, gridY, 25, 12);
 
                 this.ctx.save();
@@ -538,7 +642,6 @@
                 this.ctx.quadraticCurveTo(-35, -15 + tailWave, -30, -25 + tailWave);
                 this.ctx.stroke();
 
-                // Tail tip
                 this.ctx.fillStyle = '#FFF';
                 this.ctx.beginPath();
                 this.ctx.arc(-30, -25 + tailWave, 4, 0, Math.PI * 2);
@@ -616,7 +719,7 @@
                 this.ctx.ellipse(28, -10, 5, 7, 0, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Pupils (menacing slits)
+                // Pupils
                 this.ctx.fillStyle = '#1a1a1a';
                 this.ctx.beginPath();
                 this.ctx.ellipse(14, -10, 2, 6, 0, 0, Math.PI * 2);
@@ -671,7 +774,6 @@
                 const bobHeight = Math.sin(performance.now() / 300 + gridX * 2 + gridY * 3) * 3;
                 const pos = Iso.toScreen(gridX, gridY, 5 + bobHeight);
 
-                // Shadow
                 this.ctx.save();
                 this.ctx.globalAlpha = 0.2;
                 this.ctx.fillStyle = '#000';
@@ -680,7 +782,6 @@
                 this.ctx.fill();
                 this.ctx.restore();
 
-                // Glow effect
                 const glowGrad = this.ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size * 2);
                 glowGrad.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
                 glowGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
@@ -689,7 +790,6 @@
                 this.ctx.arc(pos.x, pos.y, size * 2, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Bread piece
                 const breadGrad = this.ctx.createRadialGradient(pos.x - 2, pos.y - 2, 0, pos.x, pos.y, size);
                 breadGrad.addColorStop(0, '#FFF8DC');
                 breadGrad.addColorStop(0.4, '#DEB887');
@@ -700,7 +800,6 @@
                 this.ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
                 this.ctx.fill();
 
-                // Texture dots
                 this.ctx.fillStyle = '#D2691E';
                 for (let i = 0; i < 3; i++) {
                     const angle = (i / 3) * Math.PI * 2 + performance.now() / 1000;
@@ -711,22 +810,22 @@
                 }
             },
 
-            drawDebugInfo(pigeon, cats, breadcrumbs, score) {
+            drawDebugInfo(pigeon, cats, breadcrumbs, trees, score) {
                 if (!CONFIG.DEBUG) return;
 
                 this.ctx.save();
                 this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                this.ctx.fillRect(10, 10, 200, 120);
+                this.ctx.fillRect(10, 10, 220, 140);
 
                 this.ctx.fillStyle = '#0f0';
                 this.ctx.font = '12px monospace';
                 this.ctx.fillText(`Pigeon: (${pigeon.gridX.toFixed(2)}, ${pigeon.gridY.toFixed(2)})`, 20, 30);
-                this.ctx.fillText(`Cats: ${cats.length}`, 20, 50);
-                this.ctx.fillText(`Breadcrumbs: ${breadcrumbs.length}`, 20, 70);
-                this.ctx.fillText(`Score: ${score}`, 20, 90);
-                this.ctx.fillText(`FPS: ${(1000 / 16.67).toFixed(0)}`, 20, 110);
+                this.ctx.fillText(`Jumping: ${pigeon.isJumping}, OnTree: ${pigeon.onTree}`, 20, 50);
+                this.ctx.fillText(`Cats: ${cats.length}`, 20, 70);
+                this.ctx.fillText(`Breadcrumbs: ${breadcrumbs.length}`, 20, 90);
+                this.ctx.fillText(`Trees: ${trees.length}`, 20, 110);
+                this.ctx.fillText(`Score: ${score}`, 20, 130);
 
-                // Draw grid coordinates on tiles
                 this.ctx.globalAlpha = 0.5;
                 this.ctx.font = '10px monospace';
                 this.ctx.fillStyle = '#fff';
@@ -751,6 +850,7 @@
             pigeon: null,
             cats: [],
             breadcrumbs: [],
+            trees: [],
             keys: {},
             lastBreadcrumbTime: 0,
             lastCatTime: 0,
@@ -764,7 +864,6 @@
                 this.highScore = parseInt(localStorage.getItem('pigeonHighScore')) || 0;
                 document.getElementById('highScore').textContent = this.highScore;
 
-                // Input handlers
                 document.addEventListener('keydown', (e) => {
                     this.keys[e.key.toLowerCase()] = true;
                     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
@@ -774,15 +873,17 @@
                         e.preventDefault();
                         this.toggleDebug();
                     }
+                    // Jump on spacebar
+                    if (e.key === ' ' && this.running) {
+                        this.tryJump();
+                    }
                 });
 
                 document.addEventListener('keyup', (e) => {
                     this.keys[e.key.toLowerCase()] = false;
                 });
 
-                // Initial render
                 this.renderStartScreen();
-
                 Logger.log('GAME', 'Initialization complete');
             },
 
@@ -794,7 +895,9 @@
             renderStartScreen() {
                 Renderer.clear();
                 Renderer.drawGround();
-                Renderer.drawPigeon(5, 5, 1);
+                Renderer.drawPigeon(4.5, 4.5, 1, false, false);
+                Renderer.drawTree(2, 2);
+                Renderer.drawTree(7, 6);
 
                 Renderer.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                 Renderer.ctx.font = 'bold 28px Segoe UI';
@@ -805,83 +908,241 @@
             start() {
                 Logger.stateChange(this.running ? 'RUNNING' : 'STOPPED', 'STARTING');
 
-                // Reset state
                 this.pigeon = {
-                    gridX: 5,
-                    gridY: 5,
+                    gridX: 4.5,
+                    gridY: 4.5,
                     speed: 0.08,
-                    direction: 1
+                    direction: 1,
+                    isJumping: false,
+                    jumpStartTime: 0,
+                    lastJumpTime: 0,
+                    onTree: null // Reference to tree if on one
                 };
 
                 this.cats = [];
                 this.breadcrumbs = [];
+                this.trees = [];
                 this.score = 0;
                 this.lastBreadcrumbTime = 0;
                 this.lastCatTime = 0;
 
+                // Spawn trees at fixed positions (avoiding center)
+                this.spawnTrees();
+
                 document.getElementById('score').textContent = this.score;
                 document.getElementById('gameOver').style.display = 'none';
                 document.getElementById('startBtn').textContent = 'Restart';
+                document.getElementById('jumpIndicator').style.display = 'block';
 
-                // Spawn initial breadcrumbs
                 for (let i = 0; i < 5; i++) {
                     this.spawnBreadcrumb();
                 }
 
                 this.running = true;
-                Logger.gameEvent('GAME_STARTED', { initialBreadcrumbs: this.breadcrumbs.length });
+                Logger.gameEvent('GAME_STARTED', { initialBreadcrumbs: this.breadcrumbs.length, trees: this.trees.length });
 
                 requestAnimationFrame((t) => this.loop(t));
             },
 
+            spawnTrees() {
+                const positions = [
+                    { x: 1.5, y: 1.5 },
+                    { x: 7.5, y: 1.5 },
+                    { x: 1.5, y: 7.5 },
+                    { x: 7.5, y: 7.5 },
+                    { x: 4.5, y: 8 }
+                ];
+
+                positions.forEach(pos => {
+                    const tree = {
+                        gridX: pos.x,
+                        gridY: pos.y,
+                        climbingCat: null,
+                        climbProgress: 0
+                    };
+                    this.trees.push(tree);
+                    Logger.spawn('tree', tree);
+                });
+            },
+
+            tryJump() {
+                const now = performance.now();
+                if (this.pigeon.isJumping) return;
+                if (now - this.pigeon.lastJumpTime < CONFIG.JUMP_COOLDOWN) return;
+
+                // Jump off tree
+                if (this.pigeon.onTree) {
+                    this.pigeon.onTree = null;
+                    this.pigeon.isJumping = true;
+                    this.pigeon.jumpStartTime = now;
+                    this.pigeon.lastJumpTime = now;
+                    Logger.gameEvent('JUMP_OFF_TREE');
+                    return;
+                }
+
+                // Check if near a tree to jump onto
+                for (const tree of this.trees) {
+                    const dist = Math.hypot(this.pigeon.gridX - tree.gridX, this.pigeon.gridY - tree.gridY);
+                    if (dist < 1.5) {
+                        this.pigeon.onTree = tree;
+                        this.pigeon.gridX = tree.gridX;
+                        this.pigeon.gridY = tree.gridY;
+                        this.pigeon.lastJumpTime = now;
+                        Logger.gameEvent('JUMP_TO_TREE', { treePos: { x: tree.gridX, y: tree.gridY } });
+                        return;
+                    }
+                }
+
+                // Regular jump
+                this.pigeon.isJumping = true;
+                this.pigeon.jumpStartTime = now;
+                this.pigeon.lastJumpTime = now;
+                Logger.gameEvent('JUMP');
+            },
+
             spawnBreadcrumb() {
-                const crumb = {
-                    gridX: Math.random() * (CONFIG.GRID_WIDTH - 1),
-                    gridY: Math.random() * (CONFIG.GRID_HEIGHT - 1),
-                    size: 6 + Math.random() * 4
-                };
+                let gridX, gridY;
+                let attempts = 0;
+
+                // Avoid spawning on trees
+                do {
+                    gridX = Math.random() * (CONFIG.GRID_WIDTH - 1);
+                    gridY = Math.random() * (CONFIG.GRID_HEIGHT - 1);
+                    attempts++;
+                } while (this.isNearTree(gridX, gridY, 1) && attempts < 20);
+
+                const crumb = { gridX, gridY, size: 6 + Math.random() * 4 };
                 this.breadcrumbs.push(crumb);
                 Logger.spawn('breadcrumb', crumb);
             },
 
+            isNearTree(x, y, radius) {
+                return this.trees.some(tree =>
+                    Math.hypot(x - tree.gridX, y - tree.gridY) < radius
+                );
+            },
+
             spawnCat() {
-                const side = Math.random() < 0.5 ? 'left' : 'right';
-                const cat = {
-                    gridX: side === 'left' ? -1 : CONFIG.GRID_WIDTH,
-                    gridY: Math.random() * (CONFIG.GRID_HEIGHT - 1),
-                    speed: 0.03 + this.score / 2000,
-                    direction: side === 'left' ? 1 : -1
-                };
+                // Spawn from any of the 4 sides
+                const side = Math.floor(Math.random() * 4);
+                let cat;
+
+                switch (side) {
+                    case 0: // Left
+                        cat = {
+                            gridX: -1,
+                            gridY: Math.random() * (CONFIG.GRID_HEIGHT - 1),
+                            speed: 0.025 + this.score / 2500,
+                            dirX: 1,
+                            dirY: 0
+                        };
+                        break;
+                    case 1: // Right
+                        cat = {
+                            gridX: CONFIG.GRID_WIDTH,
+                            gridY: Math.random() * (CONFIG.GRID_HEIGHT - 1),
+                            speed: 0.025 + this.score / 2500,
+                            dirX: -1,
+                            dirY: 0
+                        };
+                        break;
+                    case 2: // Top
+                        cat = {
+                            gridX: Math.random() * (CONFIG.GRID_WIDTH - 1),
+                            gridY: -1,
+                            speed: 0.025 + this.score / 2500,
+                            dirX: 0,
+                            dirY: 1
+                        };
+                        break;
+                    case 3: // Bottom
+                        cat = {
+                            gridX: Math.random() * (CONFIG.GRID_WIDTH - 1),
+                            gridY: CONFIG.GRID_HEIGHT,
+                            speed: 0.025 + this.score / 2500,
+                            dirX: 0,
+                            dirY: -1
+                        };
+                        break;
+                }
+
+                cat.direction = cat.dirX !== 0 ? cat.dirX : 1;
+                cat.climbingTree = null;
                 this.cats.push(cat);
                 Logger.spawn('cat', cat);
             },
 
             update(timestamp) {
-                // Handle input - isometric movement
-                let dx = 0, dy = 0;
-
-                if (this.keys['arrowup'] || this.keys['w']) { dx -= 1; dy -= 1; }
-                if (this.keys['arrowdown'] || this.keys['s']) { dx += 1; dy += 1; }
-                if (this.keys['arrowleft'] || this.keys['a']) { dx -= 1; dy += 1; }
-                if (this.keys['arrowright'] || this.keys['d']) { dx += 1; dy -= 1; }
-
-                // Normalize diagonal movement
-                if (dx !== 0 && dy !== 0) {
-                    dx *= 0.707;
-                    dy *= 0.707;
+                // Update jump state
+                if (this.pigeon.isJumping) {
+                    if (timestamp - this.pigeon.jumpStartTime > CONFIG.JUMP_DURATION) {
+                        this.pigeon.isJumping = false;
+                    }
                 }
 
-                // Update pigeon position
-                this.pigeon.gridX += dx * this.pigeon.speed;
-                this.pigeon.gridY += dy * this.pigeon.speed;
+                // Update jump indicator
+                const jumpIndicator = document.getElementById('jumpIndicator');
+                const canJump = timestamp - this.pigeon.lastJumpTime >= CONFIG.JUMP_COOLDOWN;
+                jumpIndicator.textContent = this.pigeon.onTree ? 'SPACE to Jump Off' :
+                    (canJump ? 'SPACE to Jump' : 'Jump Cooldown...');
+                jumpIndicator.className = 'jump-indicator' + (canJump ? '' : ' cooldown');
 
-                // Update direction for sprite
-                if (dx > 0) this.pigeon.direction = 1;
-                else if (dx < 0) this.pigeon.direction = -1;
+                // Don't move if on tree
+                if (this.pigeon.onTree) {
+                    // Check if a cat is climbing this tree
+                    for (const cat of this.cats) {
+                        if (cat.climbingTree === this.pigeon.onTree) {
+                            cat.climbProgress += 0.005; // Slow climbing
+                            if (cat.climbProgress >= 1) {
+                                // Cat reached pigeon!
+                                Logger.collision('CAT_CLIMBED_TO_PIGEON', this.pigeon, cat);
+                                this.end();
+                                return;
+                            }
+                        }
+                    }
+                } else {
+                    // Handle movement - grid-aligned (not isometric-visual)
+                    let dx = 0, dy = 0;
 
-                // Clamp to grid bounds (0 to GRID_SIZE - 1 to stay on visible tiles)
-                this.pigeon.gridX = Math.max(0, Math.min(CONFIG.GRID_WIDTH - 1, this.pigeon.gridX));
-                this.pigeon.gridY = Math.max(0, Math.min(CONFIG.GRID_HEIGHT - 1, this.pigeon.gridY));
+                    if (this.keys['arrowup'] || this.keys['w']) dy -= 1;
+                    if (this.keys['arrowdown'] || this.keys['s']) dy += 1;
+                    if (this.keys['arrowleft'] || this.keys['a']) dx -= 1;
+                    if (this.keys['arrowright'] || this.keys['d']) dx += 1;
+
+                    // Normalize diagonal movement
+                    if (dx !== 0 && dy !== 0) {
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        dx /= len;
+                        dy /= len;
+                    }
+
+                    // Check tree collision before moving
+                    const newX = this.pigeon.gridX + dx * this.pigeon.speed;
+                    const newY = this.pigeon.gridY + dy * this.pigeon.speed;
+
+                    let blocked = false;
+                    for (const tree of this.trees) {
+                        const dist = Math.hypot(newX - tree.gridX, newY - tree.gridY);
+                        if (dist < 0.8) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+
+                    if (!blocked) {
+                        this.pigeon.gridX = newX;
+                        this.pigeon.gridY = newY;
+                    }
+
+                    // Update direction
+                    if (dx > 0) this.pigeon.direction = 1;
+                    else if (dx < 0) this.pigeon.direction = -1;
+
+                    // Clamp to grid bounds
+                    this.pigeon.gridX = Math.max(0, Math.min(CONFIG.GRID_WIDTH - 1, this.pigeon.gridX));
+                    this.pigeon.gridY = Math.max(0, Math.min(CONFIG.GRID_HEIGHT - 1, this.pigeon.gridY));
+                }
 
                 Logger.entityUpdate('pigeon', this.pigeon);
 
@@ -900,36 +1161,75 @@
 
                 // Update cats
                 this.cats.forEach(cat => {
-                    cat.gridX += cat.speed * cat.direction;
-                });
-
-                // Remove off-screen cats
-                this.cats = this.cats.filter(cat =>
-                    cat.gridX > -2 && cat.gridX < CONFIG.GRID_WIDTH + 2
-                );
-
-                // Check breadcrumb collection
-                const collectRadius = 0.8;
-                this.breadcrumbs = this.breadcrumbs.filter(crumb => {
-                    const dist = Math.hypot(this.pigeon.gridX - crumb.gridX, this.pigeon.gridY - crumb.gridY);
-                    if (dist < collectRadius) {
-                        this.score += 10;
-                        document.getElementById('score').textContent = this.score;
-                        Logger.collision('COLLECT', this.pigeon, crumb);
-                        Logger.gameEvent('SCORE_UPDATE', { score: this.score, delta: 10 });
-                        return false;
-                    }
-                    return true;
-                });
-
-                // Check cat collision
-                const catHitRadius = 1.2;
-                for (const cat of this.cats) {
-                    const dist = Math.hypot(this.pigeon.gridX - cat.gridX, this.pigeon.gridY - cat.gridY);
-                    if (dist < catHitRadius) {
-                        Logger.collision('HIT', this.pigeon, cat);
-                        this.end();
+                    if (cat.climbingTree) {
+                        // Cat is climbing a tree
+                        cat.climbProgress += 0.003;
                         return;
+                    }
+
+                    // Move cat
+                    cat.gridX += cat.speed * cat.dirX;
+                    cat.gridY += cat.speed * cat.dirY;
+
+                    // Check if cat hits a tree
+                    for (const tree of this.trees) {
+                        const dist = Math.hypot(cat.gridX - tree.gridX, cat.gridY - tree.gridY);
+                        if (dist < 0.8 && !tree.climbingCat) {
+                            // Check if pigeon is on this tree
+                            if (this.pigeon.onTree === tree) {
+                                cat.climbingTree = tree;
+                                tree.climbingCat = cat;
+                                cat.climbProgress = 0;
+                                cat.gridX = tree.gridX;
+                                cat.gridY = tree.gridY;
+                                Logger.gameEvent('CAT_START_CLIMB', { treePos: { x: tree.gridX, y: tree.gridY } });
+                            }
+                            break;
+                        }
+                    }
+                });
+
+                // Remove off-screen cats (that aren't climbing)
+                this.cats = this.cats.filter(cat => {
+                    if (cat.climbingTree) return true;
+                    return cat.gridX > -2 && cat.gridX < CONFIG.GRID_WIDTH + 2 &&
+                           cat.gridY > -2 && cat.gridY < CONFIG.GRID_HEIGHT + 2;
+                });
+
+                // Clean up trees
+                this.trees.forEach(tree => {
+                    if (tree.climbingCat && !this.cats.includes(tree.climbingCat)) {
+                        tree.climbingCat = null;
+                    }
+                });
+
+                // Check breadcrumb collection (not while on tree)
+                if (!this.pigeon.onTree) {
+                    const collectRadius = 0.8;
+                    this.breadcrumbs = this.breadcrumbs.filter(crumb => {
+                        const dist = Math.hypot(this.pigeon.gridX - crumb.gridX, this.pigeon.gridY - crumb.gridY);
+                        if (dist < collectRadius) {
+                            this.score += 10;
+                            document.getElementById('score').textContent = this.score;
+                            Logger.collision('COLLECT', this.pigeon, crumb);
+                            Logger.gameEvent('SCORE_UPDATE', { score: this.score, delta: 10 });
+                            return false;
+                        }
+                        return true;
+                    });
+                }
+
+                // Check cat collision (not while jumping or on tree)
+                if (!this.pigeon.isJumping && !this.pigeon.onTree) {
+                    const catHitRadius = 1.0;
+                    for (const cat of this.cats) {
+                        if (cat.climbingTree) continue;
+                        const dist = Math.hypot(this.pigeon.gridX - cat.gridX, this.pigeon.gridY - cat.gridY);
+                        if (dist < catHitRadius) {
+                            Logger.collision('HIT', this.pigeon, cat);
+                            this.end();
+                            return;
+                        }
                     }
                 }
             },
@@ -938,24 +1238,39 @@
                 Renderer.clear();
                 Renderer.drawGround();
 
-                // Collect all entities for depth sorting
                 const entities = [];
 
+                // Add breadcrumbs
                 this.breadcrumbs.forEach(crumb => {
                     entities.push({ type: 'breadcrumb', depth: Iso.getDepth(crumb.gridX, crumb.gridY), data: crumb });
                 });
 
+                // Add trees
+                this.trees.forEach(tree => {
+                    entities.push({
+                        type: 'tree',
+                        depth: Iso.getDepth(tree.gridX, tree.gridY),
+                        data: tree
+                    });
+                });
+
+                // Add cats (not climbing ones)
                 this.cats.forEach(cat => {
-                    entities.push({ type: 'cat', depth: Iso.getDepth(cat.gridX, cat.gridY), data: cat });
+                    if (!cat.climbingTree) {
+                        entities.push({ type: 'cat', depth: Iso.getDepth(cat.gridX, cat.gridY), data: cat });
+                    }
                 });
 
-                entities.push({
-                    type: 'pigeon',
-                    depth: Iso.getDepth(this.pigeon.gridX, this.pigeon.gridY),
-                    data: this.pigeon
-                });
+                // Add pigeon (if not on tree)
+                if (!this.pigeon.onTree) {
+                    entities.push({
+                        type: 'pigeon',
+                        depth: Iso.getDepth(this.pigeon.gridX, this.pigeon.gridY),
+                        data: this.pigeon
+                    });
+                }
 
-                // Sort by depth (back to front)
+                // Sort by depth
                 entities.sort((a, b) => a.depth - b.depth);
 
                 // Draw entities
@@ -964,16 +1279,28 @@
                         case 'breadcrumb':
                             Renderer.drawBreadcrumb(entity.data.gridX, entity.data.gridY, entity.data.size);
                             break;
+                        case 'tree':
+                            const tree = entity.data;
+                            const hasCat = tree.climbingCat !== null;
+                            const hasPigeon = this.pigeon.onTree === tree;
+                            Renderer.drawTree(tree.gridX, tree.gridY, hasCat, hasPigeon);
+                            break;
                         case 'cat':
-                            Renderer.drawCat(entity.data.gridX, entity.data.gridY, entity.data.direction);
+                            Renderer.drawCat(entity.data.gridX, entity.data.gridY, entity.data.direction, false);
                             break;
                         case 'pigeon':
-                            Renderer.drawPigeon(entity.data.gridX, entity.data.gridY, entity.data.direction);
+                            Renderer.drawPigeon(
+                                entity.data.gridX,
+                                entity.data.gridY,
+                                entity.data.direction,
+                                entity.data.isJumping,
+                                false
+                            );
                             break;
                     }
                 });
 
-                Renderer.drawDebugInfo(this.pigeon, this.cats, this.breadcrumbs, this.score);
+                Renderer.drawDebugInfo(this.pigeon, this.cats, this.breadcrumbs, this.trees, this.score);
             },
 
             loop(timestamp) {
@@ -999,9 +1326,9 @@
 
                 document.getElementById('finalScore').textContent = this.score;
                 document.getElementById('gameOver').style.display = 'block';
+                document.getElementById('jumpIndicator').style.display = 'none';
             },
 
-            // Test API for headless testing
             test: {
                 getState() {
                     return {
@@ -1009,7 +1336,8 @@
                         score: Game.score,
                         pigeon: Game.pigeon ? { ...Game.pigeon } : null,
                         catCount: Game.cats.length,
-                        breadcrumbCount: Game.breadcrumbs.length
+                        breadcrumbCount: Game.breadcrumbs.length,
+                        treeCount: Game.trees.length
                     };
                 },
 
@@ -1029,10 +1357,7 @@
             }
         };
 
-        // Initialize on load
         window.addEventListener('load', () => Game.init());
-
-        // Expose test API globally
         window.PigeonGame = Game;
 
         console.log('%c🐦 Pigeon Game Loaded!', 'font-size: 16px; font-weight: bold;');
