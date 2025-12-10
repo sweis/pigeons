@@ -197,8 +197,8 @@
             GRID_WIDTH: 10,
             GRID_HEIGHT: 10,
             NUM_TREES: 5,
-            JUMP_DURATION: 400,
-            JUMP_COOLDOWN: 1000,
+            JUMP_DURATION: 500,
+            JUMP_COOLDOWN: 800,
             DEBUG: false
         };
 
@@ -972,10 +972,14 @@
 
                 // Jump off tree
                 if (this.pigeon.onTree) {
+                    const tree = this.pigeon.onTree;
                     this.pigeon.onTree = null;
                     this.pigeon.isJumping = true;
                     this.pigeon.jumpStartTime = now;
                     this.pigeon.lastJumpTime = now;
+                    // Offset pigeon away from tree so they're not stuck
+                    this.pigeon.gridX = tree.gridX + 1.2;
+                    this.pigeon.gridY = tree.gridY + 1.2;
                     Logger.gameEvent('JUMP_OFF_TREE');
                     return;
                 }
@@ -1083,9 +1087,16 @@
                 // Update jump indicator
                 const jumpIndicator = document.getElementById('jumpIndicator');
                 const canJump = timestamp - this.pigeon.lastJumpTime >= CONFIG.JUMP_COOLDOWN;
-                jumpIndicator.textContent = this.pigeon.onTree ? 'SPACE to Jump Off' :
-                    (canJump ? 'SPACE to Jump' : 'Jump Cooldown...');
-                jumpIndicator.className = 'jump-indicator' + (canJump ? '' : ' cooldown');
+                if (this.pigeon.isJumping) {
+                    jumpIndicator.textContent = 'JUMPING!';
+                    jumpIndicator.className = 'jump-indicator';
+                } else if (this.pigeon.onTree) {
+                    jumpIndicator.textContent = 'SPACE to Jump Off';
+                    jumpIndicator.className = 'jump-indicator';
+                } else {
+                    jumpIndicator.textContent = canJump ? 'SPACE to Jump' : 'Jump Cooldown...';
+                    jumpIndicator.className = 'jump-indicator' + (canJump ? '' : ' cooldown');
+                }
 
                 // Don't move if on tree
                 if (this.pigeon.onTree) {
@@ -1102,31 +1113,37 @@
                         }
                     }
                 } else {
-                    // Handle movement - grid-aligned (not isometric-visual)
+                    // Handle movement - screen-visual directions mapped to isometric grid
+                    // In isometric: screen-up = grid(-1,-1), screen-down = grid(+1,+1)
+                    //               screen-left = grid(-1,+1), screen-right = grid(+1,-1)
                     let dx = 0, dy = 0;
 
-                    if (this.keys['arrowup'] || this.keys['w']) dy -= 1;
-                    if (this.keys['arrowdown'] || this.keys['s']) dy += 1;
-                    if (this.keys['arrowleft'] || this.keys['a']) dx -= 1;
-                    if (this.keys['arrowright'] || this.keys['d']) dx += 1;
+                    // Each key adds a screen-direction vector
+                    if (this.keys['arrowup'] || this.keys['w']) { dx -= 1; dy -= 1; }    // Screen up
+                    if (this.keys['arrowdown'] || this.keys['s']) { dx += 1; dy += 1; }  // Screen down
+                    if (this.keys['arrowleft'] || this.keys['a']) { dx -= 1; dy += 1; }  // Screen left
+                    if (this.keys['arrowright'] || this.keys['d']) { dx += 1; dy -= 1; } // Screen right
 
-                    // Normalize diagonal movement
-                    if (dx !== 0 && dy !== 0) {
-                        const len = Math.sqrt(dx * dx + dy * dy);
+                    // Normalize to maintain consistent speed regardless of direction
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    if (len > 0) {
                         dx /= len;
                         dy /= len;
                     }
 
-                    // Check tree collision before moving
+                    // Check tree collision before moving (skip if jumping)
                     const newX = this.pigeon.gridX + dx * this.pigeon.speed;
                     const newY = this.pigeon.gridY + dy * this.pigeon.speed;
 
+                    // Skip tree collision when jumping (allows jumping past trees)
                     let blocked = false;
-                    for (const tree of this.trees) {
-                        const dist = Math.hypot(newX - tree.gridX, newY - tree.gridY);
-                        if (dist < 0.8) {
-                            blocked = true;
-                            break;
+                    if (!this.pigeon.isJumping) {
+                        for (const tree of this.trees) {
+                            const dist = Math.hypot(newX - tree.gridX, newY - tree.gridY);
+                            if (dist < 0.8) {
+                                blocked = true;
+                                break;
+                            }
                         }
                     }
 
