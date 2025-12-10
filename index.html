@@ -1237,16 +1237,19 @@
                 }
 
                 // Check cat collision (not while jumping or on tree)
-                if (!this.pigeon.isJumping && !this.pigeon.onTree) {
-                    const catHitRadius = 1.0;
-                    for (const cat of this.cats) {
-                        if (cat.climbingTree) continue;
-                        const dist = Math.hypot(this.pigeon.gridX - cat.gridX, this.pigeon.gridY - cat.gridY);
-                        if (dist < catHitRadius) {
-                            Logger.collision('HIT', this.pigeon, cat);
-                            this.end();
-                            return;
+                const catHitRadius = 1.0;
+                for (const cat of this.cats) {
+                    if (cat.climbingTree) continue;
+                    const dist = Math.hypot(this.pigeon.gridX - cat.gridX, this.pigeon.gridY - cat.gridY);
+                    if (dist < catHitRadius) {
+                        // Jumping or on tree = immune to cats
+                        if (this.pigeon.isJumping || this.pigeon.onTree) {
+                            Logger.gameEvent('JUMP_DODGE', { dist: dist.toFixed(2), isJumping: this.pigeon.isJumping });
+                            continue; // Skip this cat, pigeon is safe
                         }
+                        Logger.collision('HIT', this.pigeon, cat);
+                        this.end();
+                        return;
                     }
                 }
             },
