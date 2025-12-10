@@ -180,8 +180,9 @@
             <button class="btn" id="startBtn" onclick="Game.start()">Start Game</button>
         </div>
         <div class="instructions">
-            Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move |
-            <strong>SPACE</strong> to jump over cats<br>
+            <strong>SPACE</strong> to start/restart |
+            <strong>Arrow Keys</strong> or <strong>WASD</strong> to move |
+            <strong>SPACE</strong> to jump<br>
             Collect breadcrumbs, avoid cats, use trees for safety!
         </div>
     </div>
@@ -873,9 +874,13 @@
                         e.preventDefault();
                         this.toggleDebug();
                     }
-                    // Jump on spacebar
-                    if (e.key === ' ' && this.running) {
-                        this.tryJump();
+                    // Spacebar: start/restart if not running, jump if running
+                    if (e.key === ' ') {
+                        if (this.running) {
+                            this.tryJump();
+                        } else {
+                            this.start();
+                        }
                     }
                 });
 
