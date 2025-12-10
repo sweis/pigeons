@@ -255,14 +255,41 @@
         // ISOMETRIC UTILITIES
         // ============================================
 
-        // Pre-compute grass tuft positions (deterministic based on tile coords)
-        const GRASS_TILES = new Set();
+        // Deterministic pseudo-random function for terrain generation
+        function hash(x, y, seed = 0) {
+            const h = Math.sin(x * 12.9898 + y * 78.233 + seed * 43.758) * 43758.5453;
+            return h - Math.floor(h);
+        }
+
+        // Pre-compute terrain features for each tile
+        const TERRAIN = {};
         for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
             for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
-                const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-                if ((hash - Math.floor(hash)) > 0.92) {
-                    GRASS_TILES.add(`${x},${y}`);
-                }
+                const key = `${x},${y}`;
+                const h1 = hash(x, y, 1);
+                const h2 = hash(x, y, 2);
+                const h3 = hash(x, y, 3);
+                const h4 = hash(x, y, 4);
+
+                // Determine terrain type
+                let type = 'grass';
+                if (h1 > 0.85) type = 'dirt';
+                else if (h1 > 0.75) type = 'moss';
+
+                // Determine decorations
+                const decorations = [];
+                if (h2 > 0.88) decorations.push('rock');
+                if (h3 > 0.85) decorations.push('grass_tuft');
+                if (h4 > 0.90) decorations.push('flowers');
+                if (h2 > 0.70 && h2 < 0.75) decorations.push('pebbles');
+
+                TERRAIN[key] = {
+                    type,
+                    decorations,
+                    variation: h1 * 20 - 10, // -10 to +10 color variation
+                    noiseX: (h2 - 0.5) * 0.3, // Slight position offset for organic feel
+                    noiseY: (h3 - 0.5) * 0.3
+                };
             }
         }
 
@@ -340,34 +367,180 @@
             drawGround() {
                 for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
                     for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
-                        const isLight = (x + y) % 2 === 0;
-                        const variation = Math.sin(x * 3.7 + y * 2.3) * 10;
-                        const baseGreen = isLight ? 130 : 115;
-                        const green = Math.floor(baseGreen + variation);
-                        const color = `rgb(${80 + variation/2}, ${green}, ${60 + variation/3})`;
-                        const border = `rgba(0, 0, 0, 0.1)`;
+                        const terrain = TERRAIN[`${x},${y}`];
+                        const v = terrain.variation;
 
-                        this.drawIsometricTile(x, y, color, border);
+                        // Base colors by terrain type - no checkerboard
+                        let r, g, b;
+                        switch (terrain.type) {
+                            case 'dirt':
+                                // Brown earth tones
+                                r = 139 + v;
+                                g = 105 + v * 0.7;
+                                b = 69 + v * 0.5;
+                                break;
+                            case 'moss':
+                                // Dark mossy green
+                                r = 60 + v * 0.5;
+                                g = 100 + v;
+                                b = 50 + v * 0.3;
+                                break;
+                            default: // grass
+                                // Natural grass green with variation
+                                r = 76 + v * 0.6;
+                                g = 120 + v;
+                                b = 56 + v * 0.4;
+                        }
 
-                        if (GRASS_TILES.has(`${x},${y}`)) {
-                            this.drawGrassTuft(x, y);
+                        const color = `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+                        this.drawIsometricTile(x, y, color, 'rgba(0, 0, 0, 0.05)');
+
+                        // Draw decorations
+                        for (const deco of terrain.decorations) {
+                            switch (deco) {
+                                case 'grass_tuft':
+                                    this.drawGrassTuft(x, y, terrain.noiseX, terrain.noiseY);
+                                    break;
+                                case 'rock':
+                                    this.drawRock(x, y, terrain.noiseX, terrain.noiseY);
+                                    break;
+                                case 'flowers':
+                                    this.drawFlowers(x, y, terrain.noiseX, terrain.noiseY);
+                                    break;
+                                case 'pebbles':
+                                    this.drawPebbles(x, y, terrain.noiseX, terrain.noiseY);
+                                    break;
+                            }
                         }
                     }
                 }
             },
 
-            drawGrassTuft(gridX, gridY) {
-                const pos = Iso.toScreen(gridX + 0.5, gridY + 0.5);
+            drawGrassTuft(gridX, gridY, offsetX = 0, offsetY = 0) {
+                const pos = Iso.toScreen(gridX + 0.5 + offsetX, gridY + 0.5 + offsetY);
                 this.ctx.save();
                 this.ctx.translate(pos.x, pos.y);
 
-                for (let i = 0; i < 3; i++) {
+                // Varied grass blades
+                const bladeCount = 4 + Math.floor(hash(gridX, gridY, 10) * 3);
+                for (let i = 0; i < bladeCount; i++) {
+                    const h = hash(gridX, gridY, 20 + i);
+                    const spread = (i - bladeCount / 2) * 3;
+                    const height = 8 + h * 8;
+                    const bend = (h - 0.5) * 6;
+
                     this.ctx.beginPath();
-                    this.ctx.strokeStyle = `rgb(${60 + i * 10}, ${100 + i * 15}, ${40})`;
-                    this.ctx.lineWidth = 2;
-                    this.ctx.moveTo(i * 4 - 4, 0);
-                    this.ctx.quadraticCurveTo(i * 4 - 2 + i, -12, i * 4, -8 - i * 2);
+                    this.ctx.strokeStyle = `rgb(${50 + h * 30}, ${90 + h * 40}, ${35 + h * 20})`;
+                    this.ctx.lineWidth = 1.5;
+                    this.ctx.moveTo(spread, 0);
+                    this.ctx.quadraticCurveTo(spread + bend, -height * 0.6, spread + bend * 1.5, -height);
                     this.ctx.stroke();
+                }
+
+                this.ctx.restore();
+            },
+
+            drawRock(gridX, gridY, offsetX = 0, offsetY = 0) {
+                const pos = Iso.toScreen(gridX + 0.5 + offsetX, gridY + 0.5 + offsetY);
+                const h = hash(gridX, gridY, 30);
+                const size = 6 + h * 8;
+
+                this.ctx.save();
+                this.ctx.translate(pos.x, pos.y);
+
+                // Rock shadow
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                this.ctx.beginPath();
+                this.ctx.ellipse(2, 3, size * 0.8, size * 0.4, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Rock body - irregular shape
+                const gray = 100 + h * 60;
+                const rockGrad = this.ctx.createRadialGradient(-2, -2, 0, 0, 0, size);
+                rockGrad.addColorStop(0, `rgb(${gray + 40}, ${gray + 35}, ${gray + 30})`);
+                rockGrad.addColorStop(0.7, `rgb(${gray}, ${gray - 5}, ${gray - 10})`);
+                rockGrad.addColorStop(1, `rgb(${gray - 30}, ${gray - 35}, ${gray - 40})`);
+
+                this.ctx.fillStyle = rockGrad;
+                this.ctx.beginPath();
+                this.ctx.moveTo(-size * 0.8, 0);
+                this.ctx.quadraticCurveTo(-size * 0.6, -size * 0.7, 0, -size * 0.6);
+                this.ctx.quadraticCurveTo(size * 0.7, -size * 0.5, size * 0.8, 0);
+                this.ctx.quadraticCurveTo(size * 0.5, size * 0.3, 0, size * 0.3);
+                this.ctx.quadraticCurveTo(-size * 0.5, size * 0.4, -size * 0.8, 0);
+                this.ctx.fill();
+
+                // Highlight
+                this.ctx.fillStyle = `rgba(255, 255, 255, 0.3)`;
+                this.ctx.beginPath();
+                this.ctx.ellipse(-size * 0.2, -size * 0.3, size * 0.25, size * 0.15, -0.5, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                this.ctx.restore();
+            },
+
+            drawFlowers(gridX, gridY, offsetX = 0, offsetY = 0) {
+                const pos = Iso.toScreen(gridX + 0.5 + offsetX, gridY + 0.5 + offsetY);
+                this.ctx.save();
+                this.ctx.translate(pos.x, pos.y);
+
+                const flowerCount = 2 + Math.floor(hash(gridX, gridY, 40) * 3);
+                for (let i = 0; i < flowerCount; i++) {
+                    const h = hash(gridX, gridY, 50 + i);
+                    const fx = (h - 0.5) * 16;
+                    const fy = (hash(gridX, gridY, 60 + i) - 0.5) * 8;
+
+                    // Stem
+                    this.ctx.strokeStyle = '#3d5c3d';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(fx, fy);
+                    this.ctx.lineTo(fx, fy - 6);
+                    this.ctx.stroke();
+
+                    // Flower petals
+                    const colors = ['#FFE4B5', '#FFB6C1', '#E6E6FA', '#FFFACD', '#F0FFF0'];
+                    const color = colors[Math.floor(h * colors.length)];
+                    this.ctx.fillStyle = color;
+
+                    for (let p = 0; p < 5; p++) {
+                        const angle = (p / 5) * Math.PI * 2;
+                        this.ctx.beginPath();
+                        this.ctx.ellipse(
+                            fx + Math.cos(angle) * 2,
+                            fy - 6 + Math.sin(angle) * 2,
+                            2, 1.5, angle, 0, Math.PI * 2
+                        );
+                        this.ctx.fill();
+                    }
+
+                    // Center
+                    this.ctx.fillStyle = '#FFD700';
+                    this.ctx.beginPath();
+                    this.ctx.arc(fx, fy - 6, 1.5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                this.ctx.restore();
+            },
+
+            drawPebbles(gridX, gridY, offsetX = 0, offsetY = 0) {
+                const pos = Iso.toScreen(gridX + 0.5 + offsetX, gridY + 0.5 + offsetY);
+                this.ctx.save();
+                this.ctx.translate(pos.x, pos.y);
+
+                const pebbleCount = 3 + Math.floor(hash(gridX, gridY, 70) * 4);
+                for (let i = 0; i < pebbleCount; i++) {
+                    const h = hash(gridX, gridY, 80 + i);
+                    const px = (h - 0.5) * 20;
+                    const py = (hash(gridX, gridY, 90 + i) - 0.5) * 10;
+                    const size = 2 + h * 3;
+                    const gray = 120 + h * 50;
+
+                    this.ctx.fillStyle = `rgb(${gray}, ${gray - 5}, ${gray - 10})`;
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(px, py, size, size * 0.6, h * Math.PI, 0, Math.PI * 2);
+                    this.ctx.fill();
                 }
 
                 this.ctx.restore();
