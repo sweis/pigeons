@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pigeon Game</title>
+    <title>Pigeon Game - Isometric</title>
     <style>
         * {
             margin: 0;
@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -22,62 +22,79 @@
         }
 
         .game-container {
-            background: white;
+            background: linear-gradient(145deg, #1e1e2e, #2a2a3e);
             border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 25px;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
-            padding: 0 10px;
+            margin-bottom: 20px;
+            padding: 0 15px;
         }
 
         .score, .high-score {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #333;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #e0e0e0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .high-score {
-            color: #667eea;
+            color: #ffd700;
         }
 
         canvas {
             display: block;
-            border-radius: 10px;
-            background: #87CEEB;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4),
+                        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
         }
 
         .controls {
-            margin-top: 15px;
+            margin-top: 20px;
             text-align: center;
         }
 
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #e94560 0%, #c23a51 100%);
             color: white;
             border: none;
-            padding: 12px 30px;
-            font-size: 1rem;
-            border-radius: 25px;
+            padding: 14px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 30px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(233, 69, 96, 0.5);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
         }
 
         .instructions {
-            margin-top: 15px;
+            margin-top: 18px;
             text-align: center;
-            color: #666;
-            font-size: 0.9rem;
+            color: #888;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .instructions strong {
+            color: #e94560;
         }
 
         .game-over {
@@ -85,20 +102,45 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
+            background: linear-gradient(145deg, rgba(20, 20, 35, 0.95), rgba(30, 30, 50, 0.95));
             color: white;
-            padding: 30px 50px;
-            border-radius: 15px;
+            padding: 40px 60px;
+            border-radius: 20px;
             text-align: center;
             display: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
 
         .game-over h2 {
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            font-size: 2rem;
+            color: #e94560;
         }
 
         .game-over p {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            font-size: 1.2rem;
+            color: #ccc;
+        }
+
+        .debug-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #888;
+            border: 1px solid #444;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .debug-toggle:hover {
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
         }
     </style>
 </head>
@@ -109,411 +151,883 @@
             <div class="high-score">Best: <span id="highScore">0</span></div>
         </div>
         <div style="position: relative;">
-            <canvas id="gameCanvas" width="400" height="500"></canvas>
+            <canvas id="gameCanvas" width="600" height="500"></canvas>
             <div class="game-over" id="gameOver">
                 <h2>Game Over!</h2>
                 <p>Score: <span id="finalScore">0</span></p>
-                <button class="btn" onclick="startGame()">Play Again</button>
+                <button class="btn" onclick="Game.start()">Play Again</button>
             </div>
         </div>
         <div class="controls">
-            <button class="btn" id="startBtn" onclick="startGame()">Start Game</button>
+            <button class="btn" id="startBtn" onclick="Game.start()">Start Game</button>
         </div>
         <div class="instructions">
             Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move<br>
             Collect breadcrumbs, avoid cats!
         </div>
     </div>
+    <button class="debug-toggle" onclick="Game.toggleDebug()">Toggle Debug (F3)</button>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreElement = document.getElementById('score');
-        const highScoreElement = document.getElementById('highScore');
-        const gameOverElement = document.getElementById('gameOver');
-        const finalScoreElement = document.getElementById('finalScore');
-        const startBtn = document.getElementById('startBtn');
-
-        // Game state
-        let gameRunning = false;
-        let score = 0;
-        let highScore = localStorage.getItem('pigeonHighScore') || 0;
-        highScoreElement.textContent = highScore;
-
-        // Pigeon
-        const pigeon = {
-            x: 200,
-            y: 400,
-            width: 40,
-            height: 40,
-            speed: 5,
-            dx: 0,
-            dy: 0
+        // ============================================
+        // GAME CONFIGURATION
+        // ============================================
+        const CONFIG = {
+            TILE_WIDTH: 64,
+            TILE_HEIGHT: 32,
+            GRID_WIDTH: 10,
+            GRID_HEIGHT: 10,
+            DEBUG: false
         };
 
-        // Game objects
-        let breadcrumbs = [];
-        let cats = [];
-        let lastBreadcrumbTime = 0;
-        let lastCatTime = 0;
+        // ============================================
+        // DEBUG LOGGER - Console output for testing
+        // ============================================
+        const Logger = {
+            enabled: true,
 
-        // Input handling
-        const keys = {};
+            log(category, message, data = null) {
+                if (!this.enabled) return;
+                const timestamp = performance.now().toFixed(2);
+                const prefix = `[${timestamp}ms] [${category}]`;
+                if (data) {
+                    console.log(`${prefix} ${message}`, data);
+                } else {
+                    console.log(`${prefix} ${message}`);
+                }
+            },
 
-        document.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true;
-            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
-                e.preventDefault();
+            gameEvent(event, details = {}) {
+                this.log('GAME', event, details);
+            },
+
+            entityUpdate(type, entity) {
+                if (CONFIG.DEBUG) {
+                    this.log('ENTITY', `${type} update`, {
+                        gridPos: { x: entity.gridX?.toFixed(2), y: entity.gridY?.toFixed(2) },
+                        screenPos: entity.screenX ? { x: entity.screenX.toFixed(0), y: entity.screenY.toFixed(0) } : null
+                    });
+                }
+            },
+
+            collision(type, entity1, entity2) {
+                this.log('COLLISION', `${type}`, {
+                    entity1: { x: entity1.gridX?.toFixed(2), y: entity1.gridY?.toFixed(2) },
+                    entity2: { x: entity2.gridX?.toFixed(2), y: entity2.gridY?.toFixed(2) }
+                });
+            },
+
+            spawn(type, entity) {
+                this.log('SPAWN', `New ${type}`, {
+                    gridPos: { x: entity.gridX.toFixed(2), y: entity.gridY.toFixed(2) }
+                });
+            },
+
+            stateChange(from, to) {
+                this.log('STATE', `${from} -> ${to}`);
             }
-        });
+        };
 
-        document.addEventListener('keyup', (e) => {
-            keys[e.key.toLowerCase()] = false;
-        });
+        // ============================================
+        // ISOMETRIC UTILITIES
+        // ============================================
+        const Iso = {
+            // Convert grid coordinates to screen coordinates
+            toScreen(gridX, gridY, elevation = 0) {
+                const offsetX = 300; // Center offset
+                const offsetY = 100;
+                return {
+                    x: offsetX + (gridX - gridY) * (CONFIG.TILE_WIDTH / 2),
+                    y: offsetY + (gridX + gridY) * (CONFIG.TILE_HEIGHT / 2) - elevation
+                };
+            },
 
-        // Draw pigeon (simple but cute)
-        function drawPigeon(x, y) {
-            ctx.save();
-            ctx.translate(x + pigeon.width / 2, y + pigeon.height / 2);
+            // Convert screen coordinates to grid coordinates
+            toGrid(screenX, screenY) {
+                const offsetX = 300;
+                const offsetY = 100;
+                const x = screenX - offsetX;
+                const y = screenY - offsetY;
+                return {
+                    gridX: (x / (CONFIG.TILE_WIDTH / 2) + y / (CONFIG.TILE_HEIGHT / 2)) / 2,
+                    gridY: (y / (CONFIG.TILE_HEIGHT / 2) - x / (CONFIG.TILE_WIDTH / 2)) / 2
+                };
+            },
 
-            // Body
-            ctx.fillStyle = '#708090';
-            ctx.beginPath();
-            ctx.ellipse(0, 5, 18, 15, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Head
-            ctx.fillStyle = '#607080';
-            ctx.beginPath();
-            ctx.arc(0, -10, 12, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Neck shimmer
-            ctx.fillStyle = '#9370DB';
-            ctx.beginPath();
-            ctx.ellipse(0, -2, 8, 5, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Eye
-            ctx.fillStyle = '#FF6B35';
-            ctx.beginPath();
-            ctx.arc(5, -12, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = 'black';
-            ctx.beginPath();
-            ctx.arc(5, -12, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Beak
-            ctx.fillStyle = '#FFB347';
-            ctx.beginPath();
-            ctx.moveTo(10, -8);
-            ctx.lineTo(18, -6);
-            ctx.lineTo(10, -4);
-            ctx.closePath();
-            ctx.fill();
-
-            // Wings
-            ctx.fillStyle = '#5A6A7A';
-            ctx.beginPath();
-            ctx.ellipse(-10, 8, 8, 12, -0.3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(10, 8, 8, 12, 0.3, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.restore();
-        }
-
-        // Draw breadcrumb
-        function drawBreadcrumb(crumb) {
-            ctx.fillStyle = '#DEB887';
-            ctx.beginPath();
-            ctx.arc(crumb.x, crumb.y, crumb.size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#D2691E';
-            ctx.beginPath();
-            ctx.arc(crumb.x - 2, crumb.y - 2, 2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Draw cat (enemy)
-        function drawCat(cat) {
-            ctx.save();
-            ctx.translate(cat.x, cat.y);
-
-            // Body
-            ctx.fillStyle = '#FF6B35';
-            ctx.beginPath();
-            ctx.ellipse(0, 10, 20, 15, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Head
-            ctx.fillStyle = '#FF6B35';
-            ctx.beginPath();
-            ctx.arc(0, -8, 15, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Ears
-            ctx.beginPath();
-            ctx.moveTo(-12, -18);
-            ctx.lineTo(-8, -30);
-            ctx.lineTo(-2, -18);
-            ctx.closePath();
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(12, -18);
-            ctx.lineTo(8, -30);
-            ctx.lineTo(2, -18);
-            ctx.closePath();
-            ctx.fill();
-
-            // Eyes
-            ctx.fillStyle = '#90EE90';
-            ctx.beginPath();
-            ctx.ellipse(-6, -10, 4, 5, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(6, -10, 4, 5, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Pupils
-            ctx.fillStyle = 'black';
-            ctx.beginPath();
-            ctx.ellipse(-6, -10, 2, 4, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(6, -10, 2, 4, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Nose
-            ctx.fillStyle = '#FF69B4';
-            ctx.beginPath();
-            ctx.moveTo(0, -4);
-            ctx.lineTo(-3, 0);
-            ctx.lineTo(3, 0);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.restore();
-        }
-
-        // Draw background
-        function drawBackground() {
-            // Sky gradient
-            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, '#87CEEB');
-            gradient.addColorStop(1, '#E0F6FF');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Ground
-            ctx.fillStyle = '#90EE90';
-            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
-
-            // Grass details
-            ctx.fillStyle = '#7CCD7C';
-            for (let i = 0; i < canvas.width; i += 20) {
-                ctx.beginPath();
-                ctx.moveTo(i, canvas.height - 60);
-                ctx.lineTo(i + 5, canvas.height - 70);
-                ctx.lineTo(i + 10, canvas.height - 60);
-                ctx.fill();
+            // Get drawing order (for depth sorting)
+            getDepth(gridX, gridY) {
+                return gridX + gridY;
             }
+        };
 
-            // Clouds
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            drawCloud(50, 50);
-            drawCloud(200, 80);
-            drawCloud(320, 40);
-        }
+        // ============================================
+        // GRAPHICS RENDERER
+        // ============================================
+        const Renderer = {
+            ctx: null,
+            canvas: null,
 
-        function drawCloud(x, y) {
-            ctx.beginPath();
-            ctx.arc(x, y, 20, 0, Math.PI * 2);
-            ctx.arc(x + 25, y - 10, 25, 0, Math.PI * 2);
-            ctx.arc(x + 50, y, 20, 0, Math.PI * 2);
-            ctx.arc(x + 25, y + 5, 15, 0, Math.PI * 2);
-            ctx.fill();
-        }
+            init(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                Logger.log('RENDERER', 'Initialized', { width: canvas.width, height: canvas.height });
+            },
 
-        // Spawn breadcrumb
-        function spawnBreadcrumb() {
-            breadcrumbs.push({
-                x: Math.random() * (canvas.width - 40) + 20,
-                y: Math.random() * (canvas.height - 150) + 50,
-                size: 8 + Math.random() * 6
-            });
-        }
+            clear() {
+                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+                gradient.addColorStop(0, '#87CEEB');
+                gradient.addColorStop(0.6, '#B0E0E6');
+                gradient.addColorStop(1, '#E0F4FF');
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            },
 
-        // Spawn cat
-        function spawnCat() {
-            const side = Math.random() < 0.5 ? 'left' : 'right';
-            cats.push({
-                x: side === 'left' ? -30 : canvas.width + 30,
-                y: canvas.height - 85,
-                speed: 1.5 + score / 50,
-                direction: side === 'left' ? 1 : -1
-            });
-        }
+            drawIsometricTile(gridX, gridY, color, borderColor = null) {
+                const pos = Iso.toScreen(gridX, gridY);
+                const hw = CONFIG.TILE_WIDTH / 2;
+                const hh = CONFIG.TILE_HEIGHT / 2;
 
-        // Check collision
-        function checkCollision(rect1, rect2) {
-            return rect1.x < rect2.x + rect2.width &&
-                   rect1.x + rect1.width > rect2.x &&
-                   rect1.y < rect2.y + rect2.height &&
-                   rect1.y + rect1.height > rect2.y;
-        }
+                this.ctx.beginPath();
+                this.ctx.moveTo(pos.x, pos.y - hh);
+                this.ctx.lineTo(pos.x + hw, pos.y);
+                this.ctx.lineTo(pos.x, pos.y + hh);
+                this.ctx.lineTo(pos.x - hw, pos.y);
+                this.ctx.closePath();
 
-        // Update game
-        function update(timestamp) {
-            // Handle input
-            pigeon.dx = 0;
-            pigeon.dy = 0;
+                this.ctx.fillStyle = color;
+                this.ctx.fill();
 
-            if (keys['arrowleft'] || keys['a']) pigeon.dx = -pigeon.speed;
-            if (keys['arrowright'] || keys['d']) pigeon.dx = pigeon.speed;
-            if (keys['arrowup'] || keys['w']) pigeon.dy = -pigeon.speed;
-            if (keys['arrowdown'] || keys['s']) pigeon.dy = pigeon.speed;
+                if (borderColor) {
+                    this.ctx.strokeStyle = borderColor;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.stroke();
+                }
+            },
 
-            // Move pigeon
-            pigeon.x += pigeon.dx;
-            pigeon.y += pigeon.dy;
+            drawGround() {
+                // Draw ground tiles with slight variations
+                for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
+                    for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
+                        // Checkerboard pattern with grass variations
+                        const isLight = (x + y) % 2 === 0;
+                        const variation = Math.sin(x * 3.7 + y * 2.3) * 10;
+                        const baseGreen = isLight ? 130 : 115;
+                        const green = Math.floor(baseGreen + variation);
+                        const color = `rgb(${80 + variation/2}, ${green}, ${60 + variation/3})`;
+                        const border = `rgba(0, 0, 0, 0.1)`;
 
-            // Keep pigeon in bounds
-            pigeon.x = Math.max(0, Math.min(canvas.width - pigeon.width, pigeon.x));
-            pigeon.y = Math.max(0, Math.min(canvas.height - pigeon.height - 40, pigeon.y));
+                        this.drawIsometricTile(x, y, color, border);
 
-            // Spawn breadcrumbs
-            if (timestamp - lastBreadcrumbTime > 2000) {
-                spawnBreadcrumb();
-                lastBreadcrumbTime = timestamp;
+                        // Add grass tufts
+                        if (Math.random() > 0.92) {
+                            this.drawGrassTuft(x, y);
+                        }
+                    }
+                }
+            },
+
+            drawGrassTuft(gridX, gridY) {
+                const pos = Iso.toScreen(gridX + 0.5, gridY + 0.5);
+                this.ctx.save();
+                this.ctx.translate(pos.x, pos.y);
+
+                for (let i = 0; i < 3; i++) {
+                    this.ctx.beginPath();
+                    this.ctx.strokeStyle = `rgb(${60 + i * 10}, ${100 + i * 15}, ${40})`;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.moveTo(i * 4 - 4, 0);
+                    this.ctx.quadraticCurveTo(i * 4 - 2 + i, -12, i * 4, -8 - i * 2);
+                    this.ctx.stroke();
+                }
+
+                this.ctx.restore();
+            },
+
+            drawShadow(gridX, gridY, radiusX, radiusY) {
+                const pos = Iso.toScreen(gridX, gridY);
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.fillStyle = '#000';
+                this.ctx.beginPath();
+                this.ctx.ellipse(pos.x, pos.y + 5, radiusX, radiusY, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            },
+
+            drawPigeon(gridX, gridY, direction = 1) {
+                const elevation = 5 + Math.sin(performance.now() / 150) * 2; // Bobbing
+                const pos = Iso.toScreen(gridX, gridY, elevation);
+
+                // Shadow
+                this.drawShadow(gridX, gridY, 18, 9);
+
+                this.ctx.save();
+                this.ctx.translate(pos.x, pos.y);
+                this.ctx.scale(direction, 1);
+
+                // Body (main shape with gradient)
+                const bodyGrad = this.ctx.createRadialGradient(0, 8, 5, 0, 8, 25);
+                bodyGrad.addColorStop(0, '#8899AA');
+                bodyGrad.addColorStop(0.5, '#6B7B8B');
+                bodyGrad.addColorStop(1, '#4A5A6A');
+
+                this.ctx.fillStyle = bodyGrad;
+                this.ctx.beginPath();
+                this.ctx.ellipse(0, 8, 22, 16, 0.2, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Wing highlight
+                this.ctx.fillStyle = '#5A6A7A';
+                this.ctx.beginPath();
+                this.ctx.ellipse(-5, 10, 12, 10, -0.3, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Wing feather details
+                this.ctx.strokeStyle = '#4A5A6A';
+                this.ctx.lineWidth = 1;
+                for (let i = 0; i < 4; i++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-12 + i * 4, 5 + i * 2);
+                    this.ctx.lineTo(-8 + i * 4, 18 + i);
+                    this.ctx.stroke();
+                }
+
+                // Neck with iridescent shimmer
+                const neckGrad = this.ctx.createLinearGradient(-8, -5, 8, 5);
+                neckGrad.addColorStop(0, '#8B5CF6');
+                neckGrad.addColorStop(0.3, '#06B6D4');
+                neckGrad.addColorStop(0.6, '#8B5CF6');
+                neckGrad.addColorStop(1, '#EC4899');
+
+                this.ctx.fillStyle = neckGrad;
+                this.ctx.beginPath();
+                this.ctx.ellipse(5, -2, 10, 8, 0.3, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Head
+                const headGrad = this.ctx.createRadialGradient(10, -12, 2, 10, -12, 14);
+                headGrad.addColorStop(0, '#7B8B9B');
+                headGrad.addColorStop(1, '#5A6A7A');
+
+                this.ctx.fillStyle = headGrad;
+                this.ctx.beginPath();
+                this.ctx.arc(10, -12, 12, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Eye ring (orange)
+                this.ctx.fillStyle = '#FF6B35';
+                this.ctx.beginPath();
+                this.ctx.arc(16, -14, 5, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Eye white
+                this.ctx.fillStyle = '#FFF';
+                this.ctx.beginPath();
+                this.ctx.arc(16, -14, 3.5, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Pupil
+                this.ctx.fillStyle = '#1a1a1a';
+                this.ctx.beginPath();
+                this.ctx.arc(17, -14, 2, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Eye highlight
+                this.ctx.fillStyle = '#FFF';
+                this.ctx.beginPath();
+                this.ctx.arc(17.5, -15, 0.8, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Beak
+                this.ctx.fillStyle = '#FFB347';
+                this.ctx.beginPath();
+                this.ctx.moveTo(20, -10);
+                this.ctx.quadraticCurveTo(30, -8, 28, -6);
+                this.ctx.lineTo(20, -6);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Beak detail
+                this.ctx.fillStyle = '#E09030';
+                this.ctx.beginPath();
+                this.ctx.moveTo(20, -8);
+                this.ctx.lineTo(25, -7);
+                this.ctx.lineTo(20, -6);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Tail feathers
+                this.ctx.fillStyle = '#4A5A6A';
+                this.ctx.beginPath();
+                this.ctx.moveTo(-18, 12);
+                this.ctx.quadraticCurveTo(-28, 15, -25, 20);
+                this.ctx.lineTo(-15, 15);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                this.ctx.fillStyle = '#3A4A5A';
+                this.ctx.beginPath();
+                this.ctx.moveTo(-16, 14);
+                this.ctx.quadraticCurveTo(-24, 18, -22, 22);
+                this.ctx.lineTo(-12, 16);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Feet
+                this.ctx.strokeStyle = '#CC6644';
+                this.ctx.lineWidth = 2;
+                this.ctx.lineCap = 'round';
+
+                // Left foot
+                this.ctx.beginPath();
+                this.ctx.moveTo(-5, 20);
+                this.ctx.lineTo(-8, 26);
+                this.ctx.moveTo(-8, 26);
+                this.ctx.lineTo(-12, 28);
+                this.ctx.moveTo(-8, 26);
+                this.ctx.lineTo(-6, 29);
+                this.ctx.moveTo(-8, 26);
+                this.ctx.lineTo(-4, 28);
+                this.ctx.stroke();
+
+                // Right foot
+                this.ctx.beginPath();
+                this.ctx.moveTo(5, 20);
+                this.ctx.lineTo(8, 26);
+                this.ctx.moveTo(8, 26);
+                this.ctx.lineTo(4, 28);
+                this.ctx.moveTo(8, 26);
+                this.ctx.lineTo(10, 29);
+                this.ctx.moveTo(8, 26);
+                this.ctx.lineTo(12, 28);
+                this.ctx.stroke();
+
+                this.ctx.restore();
+            },
+
+            drawCat(gridX, gridY, direction = 1) {
+                const pos = Iso.toScreen(gridX, gridY, 0);
+
+                // Shadow
+                this.drawShadow(gridX, gridY, 25, 12);
+
+                this.ctx.save();
+                this.ctx.translate(pos.x, pos.y);
+                this.ctx.scale(direction, 1);
+
+                // Tail
+                this.ctx.strokeStyle = '#E85D04';
+                this.ctx.lineWidth = 6;
+                this.ctx.lineCap = 'round';
+                this.ctx.beginPath();
+                this.ctx.moveTo(-25, 0);
+                const tailWave = Math.sin(performance.now() / 200) * 5;
+                this.ctx.quadraticCurveTo(-35, -15 + tailWave, -30, -25 + tailWave);
+                this.ctx.stroke();
+
+                // Tail tip
+                this.ctx.fillStyle = '#FFF';
+                this.ctx.beginPath();
+                this.ctx.arc(-30, -25 + tailWave, 4, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Body
+                const bodyGrad = this.ctx.createRadialGradient(0, 5, 5, 0, 5, 30);
+                bodyGrad.addColorStop(0, '#FF8C42');
+                bodyGrad.addColorStop(0.6, '#E85D04');
+                bodyGrad.addColorStop(1, '#C44D04');
+
+                this.ctx.fillStyle = bodyGrad;
+                this.ctx.beginPath();
+                this.ctx.ellipse(0, 5, 28, 18, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Stripes
+                this.ctx.strokeStyle = '#C44D04';
+                this.ctx.lineWidth = 3;
+                for (let i = 0; i < 4; i++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-10 + i * 8, -8);
+                    this.ctx.quadraticCurveTo(-8 + i * 8, 5, -10 + i * 8, 15);
+                    this.ctx.stroke();
+                }
+
+                // Head
+                const headGrad = this.ctx.createRadialGradient(20, -10, 3, 20, -10, 20);
+                headGrad.addColorStop(0, '#FF8C42');
+                headGrad.addColorStop(1, '#E85D04');
+
+                this.ctx.fillStyle = headGrad;
+                this.ctx.beginPath();
+                this.ctx.arc(20, -8, 18, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Ears
+                this.ctx.fillStyle = '#E85D04';
+                this.ctx.beginPath();
+                this.ctx.moveTo(8, -20);
+                this.ctx.lineTo(14, -35);
+                this.ctx.lineTo(20, -22);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(28, -20);
+                this.ctx.lineTo(26, -35);
+                this.ctx.lineTo(34, -22);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Inner ears
+                this.ctx.fillStyle = '#FFB6C1';
+                this.ctx.beginPath();
+                this.ctx.moveTo(12, -22);
+                this.ctx.lineTo(14, -30);
+                this.ctx.lineTo(18, -23);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(28, -22);
+                this.ctx.lineTo(26, -30);
+                this.ctx.lineTo(30, -23);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Eyes
+                this.ctx.fillStyle = '#90EE90';
+                this.ctx.beginPath();
+                this.ctx.ellipse(14, -10, 5, 7, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.beginPath();
+                this.ctx.ellipse(28, -10, 5, 7, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Pupils (menacing slits)
+                this.ctx.fillStyle = '#1a1a1a';
+                this.ctx.beginPath();
+                this.ctx.ellipse(14, -10, 2, 6, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.beginPath();
+                this.ctx.ellipse(28, -10, 2, 6, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Nose
+                this.ctx.fillStyle = '#FF69B4';
+                this.ctx.beginPath();
+                this.ctx.moveTo(21, -2);
+                this.ctx.lineTo(18, 2);
+                this.ctx.lineTo(24, 2);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Whiskers
+                this.ctx.strokeStyle = '#FFF';
+                this.ctx.lineWidth = 1;
+                for (let side = -1; side <= 1; side += 2) {
+                    for (let i = 0; i < 3; i++) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(21 + side * 8, 0 + i * 3);
+                        this.ctx.lineTo(21 + side * 25, -3 + i * 4);
+                        this.ctx.stroke();
+                    }
+                }
+
+                // Legs
+                this.ctx.fillStyle = '#E85D04';
+                this.ctx.beginPath();
+                this.ctx.ellipse(-12, 18, 6, 8, 0.2, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.beginPath();
+                this.ctx.ellipse(8, 18, 6, 8, -0.2, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Paws
+                this.ctx.fillStyle = '#FFF';
+                this.ctx.beginPath();
+                this.ctx.ellipse(-12, 24, 5, 3, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.beginPath();
+                this.ctx.ellipse(8, 24, 5, 3, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                this.ctx.restore();
+            },
+
+            drawBreadcrumb(gridX, gridY, size) {
+                const bobHeight = Math.sin(performance.now() / 300 + gridX * 2 + gridY * 3) * 3;
+                const pos = Iso.toScreen(gridX, gridY, 5 + bobHeight);
+
+                // Shadow
+                this.ctx.save();
+                this.ctx.globalAlpha = 0.2;
+                this.ctx.fillStyle = '#000';
+                this.ctx.beginPath();
+                this.ctx.ellipse(pos.x, pos.y + 8, size * 0.8, size * 0.4, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+
+                // Glow effect
+                const glowGrad = this.ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size * 2);
+                glowGrad.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+                glowGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                this.ctx.fillStyle = glowGrad;
+                this.ctx.beginPath();
+                this.ctx.arc(pos.x, pos.y, size * 2, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Bread piece
+                const breadGrad = this.ctx.createRadialGradient(pos.x - 2, pos.y - 2, 0, pos.x, pos.y, size);
+                breadGrad.addColorStop(0, '#FFF8DC');
+                breadGrad.addColorStop(0.4, '#DEB887');
+                breadGrad.addColorStop(1, '#B8860B');
+
+                this.ctx.fillStyle = breadGrad;
+                this.ctx.beginPath();
+                this.ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Texture dots
+                this.ctx.fillStyle = '#D2691E';
+                for (let i = 0; i < 3; i++) {
+                    const angle = (i / 3) * Math.PI * 2 + performance.now() / 1000;
+                    const r = size * 0.4;
+                    this.ctx.beginPath();
+                    this.ctx.arc(pos.x + Math.cos(angle) * r, pos.y + Math.sin(angle) * r, 1.5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            },
+
+            drawDebugInfo(pigeon, cats, breadcrumbs, score) {
+                if (!CONFIG.DEBUG) return;
+
+                this.ctx.save();
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                this.ctx.fillRect(10, 10, 200, 120);
+
+                this.ctx.fillStyle = '#0f0';
+                this.ctx.font = '12px monospace';
+                this.ctx.fillText(`Pigeon: (${pigeon.gridX.toFixed(2)}, ${pigeon.gridY.toFixed(2)})`, 20, 30);
+                this.ctx.fillText(`Cats: ${cats.length}`, 20, 50);
+                this.ctx.fillText(`Breadcrumbs: ${breadcrumbs.length}`, 20, 70);
+                this.ctx.fillText(`Score: ${score}`, 20, 90);
+                this.ctx.fillText(`FPS: ${(1000 / 16.67).toFixed(0)}`, 20, 110);
+
+                // Draw grid coordinates on tiles
+                this.ctx.globalAlpha = 0.5;
+                this.ctx.font = '10px monospace';
+                this.ctx.fillStyle = '#fff';
+                for (let y = 0; y < CONFIG.GRID_HEIGHT; y++) {
+                    for (let x = 0; x < CONFIG.GRID_WIDTH; x++) {
+                        const pos = Iso.toScreen(x + 0.5, y + 0.5);
+                        this.ctx.fillText(`${x},${y}`, pos.x - 10, pos.y + 3);
+                    }
+                }
+
+                this.ctx.restore();
             }
+        };
 
-            // Spawn cats
-            const catInterval = Math.max(3000 - score * 50, 1500);
-            if (timestamp - lastCatTime > catInterval) {
-                spawnCat();
-                lastCatTime = timestamp;
-            }
+        // ============================================
+        // GAME ENGINE
+        // ============================================
+        const Game = {
+            running: false,
+            score: 0,
+            highScore: 0,
+            pigeon: null,
+            cats: [],
+            breadcrumbs: [],
+            keys: {},
+            lastBreadcrumbTime: 0,
+            lastCatTime: 0,
 
-            // Update cats
-            cats.forEach(cat => {
-                cat.x += cat.speed * cat.direction;
-            });
+            init() {
+                Logger.log('GAME', 'Initializing...');
 
-            // Remove off-screen cats
-            cats = cats.filter(cat => cat.x > -50 && cat.x < canvas.width + 50);
+                const canvas = document.getElementById('gameCanvas');
+                Renderer.init(canvas);
 
-            // Check breadcrumb collection
-            const pigeonRect = {
-                x: pigeon.x + 5,
-                y: pigeon.y + 5,
-                width: pigeon.width - 10,
-                height: pigeon.height - 10
-            };
+                this.highScore = parseInt(localStorage.getItem('pigeonHighScore')) || 0;
+                document.getElementById('highScore').textContent = this.highScore;
 
-            breadcrumbs = breadcrumbs.filter(crumb => {
-                const crumbRect = {
-                    x: crumb.x - crumb.size,
-                    y: crumb.y - crumb.size,
-                    width: crumb.size * 2,
-                    height: crumb.size * 2
+                // Input handlers
+                document.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+                        e.preventDefault();
+                    }
+                    if (e.key === 'F3') {
+                        e.preventDefault();
+                        this.toggleDebug();
+                    }
+                });
+
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+
+                // Initial render
+                this.renderStartScreen();
+
+                Logger.log('GAME', 'Initialization complete');
+            },
+
+            toggleDebug() {
+                CONFIG.DEBUG = !CONFIG.DEBUG;
+                Logger.log('DEBUG', `Debug mode: ${CONFIG.DEBUG ? 'ON' : 'OFF'}`);
+            },
+
+            renderStartScreen() {
+                Renderer.clear();
+                Renderer.drawGround();
+                Renderer.drawPigeon(5, 5, 1);
+
+                Renderer.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                Renderer.ctx.font = 'bold 28px Segoe UI';
+                Renderer.ctx.textAlign = 'center';
+                Renderer.ctx.fillText('Press Start to Play!', 300, 80);
+            },
+
+            start() {
+                Logger.stateChange(this.running ? 'RUNNING' : 'STOPPED', 'STARTING');
+
+                // Reset state
+                this.pigeon = {
+                    gridX: 5,
+                    gridY: 5,
+                    speed: 0.08,
+                    direction: 1
                 };
 
-                if (checkCollision(pigeonRect, crumbRect)) {
-                    score += 10;
-                    scoreElement.textContent = score;
-                    return false;
-                }
-                return true;
-            });
+                this.cats = [];
+                this.breadcrumbs = [];
+                this.score = 0;
+                this.lastBreadcrumbTime = 0;
+                this.lastCatTime = 0;
 
-            // Check cat collision
-            for (const cat of cats) {
-                const catRect = {
-                    x: cat.x - 20,
-                    y: cat.y - 20,
-                    width: 40,
-                    height: 50
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('gameOver').style.display = 'none';
+                document.getElementById('startBtn').textContent = 'Restart';
+
+                // Spawn initial breadcrumbs
+                for (let i = 0; i < 5; i++) {
+                    this.spawnBreadcrumb();
+                }
+
+                this.running = true;
+                Logger.gameEvent('GAME_STARTED', { initialBreadcrumbs: this.breadcrumbs.length });
+
+                requestAnimationFrame((t) => this.loop(t));
+            },
+
+            spawnBreadcrumb() {
+                const crumb = {
+                    gridX: 0.5 + Math.random() * (CONFIG.GRID_WIDTH - 1),
+                    gridY: 0.5 + Math.random() * (CONFIG.GRID_HEIGHT - 1),
+                    size: 6 + Math.random() * 4
                 };
+                this.breadcrumbs.push(crumb);
+                Logger.spawn('breadcrumb', crumb);
+            },
 
-                if (checkCollision(pigeonRect, catRect)) {
-                    endGame();
-                    return;
+            spawnCat() {
+                const side = Math.random() < 0.5 ? 'left' : 'right';
+                const cat = {
+                    gridX: side === 'left' ? -1 : CONFIG.GRID_WIDTH + 1,
+                    gridY: Math.random() * CONFIG.GRID_HEIGHT,
+                    speed: 0.03 + this.score / 2000,
+                    direction: side === 'left' ? 1 : -1
+                };
+                this.cats.push(cat);
+                Logger.spawn('cat', cat);
+            },
+
+            update(timestamp) {
+                // Handle input - isometric movement
+                let dx = 0, dy = 0;
+
+                if (this.keys['arrowup'] || this.keys['w']) { dx -= 1; dy -= 1; }
+                if (this.keys['arrowdown'] || this.keys['s']) { dx += 1; dy += 1; }
+                if (this.keys['arrowleft'] || this.keys['a']) { dx -= 1; dy += 1; }
+                if (this.keys['arrowright'] || this.keys['d']) { dx += 1; dy -= 1; }
+
+                // Normalize diagonal movement
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.707;
+                    dy *= 0.707;
+                }
+
+                // Update pigeon position
+                this.pigeon.gridX += dx * this.pigeon.speed;
+                this.pigeon.gridY += dy * this.pigeon.speed;
+
+                // Update direction for sprite
+                if (dx > 0) this.pigeon.direction = 1;
+                else if (dx < 0) this.pigeon.direction = -1;
+
+                // Clamp to grid bounds
+                this.pigeon.gridX = Math.max(0.5, Math.min(CONFIG.GRID_WIDTH - 0.5, this.pigeon.gridX));
+                this.pigeon.gridY = Math.max(0.5, Math.min(CONFIG.GRID_HEIGHT - 0.5, this.pigeon.gridY));
+
+                Logger.entityUpdate('pigeon', this.pigeon);
+
+                // Spawn breadcrumbs
+                if (timestamp - this.lastBreadcrumbTime > 2500) {
+                    this.spawnBreadcrumb();
+                    this.lastBreadcrumbTime = timestamp;
+                }
+
+                // Spawn cats
+                const catInterval = Math.max(4000 - this.score * 30, 2000);
+                if (timestamp - this.lastCatTime > catInterval) {
+                    this.spawnCat();
+                    this.lastCatTime = timestamp;
+                }
+
+                // Update cats
+                this.cats.forEach(cat => {
+                    cat.gridX += cat.speed * cat.direction;
+                });
+
+                // Remove off-screen cats
+                this.cats = this.cats.filter(cat =>
+                    cat.gridX > -2 && cat.gridX < CONFIG.GRID_WIDTH + 2
+                );
+
+                // Check breadcrumb collection
+                const collectRadius = 0.8;
+                this.breadcrumbs = this.breadcrumbs.filter(crumb => {
+                    const dist = Math.hypot(this.pigeon.gridX - crumb.gridX, this.pigeon.gridY - crumb.gridY);
+                    if (dist < collectRadius) {
+                        this.score += 10;
+                        document.getElementById('score').textContent = this.score;
+                        Logger.collision('COLLECT', this.pigeon, crumb);
+                        Logger.gameEvent('SCORE_UPDATE', { score: this.score, delta: 10 });
+                        return false;
+                    }
+                    return true;
+                });
+
+                // Check cat collision
+                const catHitRadius = 1.2;
+                for (const cat of this.cats) {
+                    const dist = Math.hypot(this.pigeon.gridX - cat.gridX, this.pigeon.gridY - cat.gridY);
+                    if (dist < catHitRadius) {
+                        Logger.collision('HIT', this.pigeon, cat);
+                        this.end();
+                        return;
+                    }
+                }
+            },
+
+            render() {
+                Renderer.clear();
+                Renderer.drawGround();
+
+                // Collect all entities for depth sorting
+                const entities = [];
+
+                this.breadcrumbs.forEach(crumb => {
+                    entities.push({ type: 'breadcrumb', depth: Iso.getDepth(crumb.gridX, crumb.gridY), data: crumb });
+                });
+
+                this.cats.forEach(cat => {
+                    entities.push({ type: 'cat', depth: Iso.getDepth(cat.gridX, cat.gridY), data: cat });
+                });
+
+                entities.push({
+                    type: 'pigeon',
+                    depth: Iso.getDepth(this.pigeon.gridX, this.pigeon.gridY),
+                    data: this.pigeon
+                });
+
+                // Sort by depth (back to front)
+                entities.sort((a, b) => a.depth - b.depth);
+
+                // Draw entities
+                entities.forEach(entity => {
+                    switch (entity.type) {
+                        case 'breadcrumb':
+                            Renderer.drawBreadcrumb(entity.data.gridX, entity.data.gridY, entity.data.size);
+                            break;
+                        case 'cat':
+                            Renderer.drawCat(entity.data.gridX, entity.data.gridY, entity.data.direction);
+                            break;
+                        case 'pigeon':
+                            Renderer.drawPigeon(entity.data.gridX, entity.data.gridY, entity.data.direction);
+                            break;
+                    }
+                });
+
+                Renderer.drawDebugInfo(this.pigeon, this.cats, this.breadcrumbs, this.score);
+            },
+
+            loop(timestamp) {
+                if (!this.running) return;
+
+                this.update(timestamp);
+                this.render();
+
+                requestAnimationFrame((t) => this.loop(t));
+            },
+
+            end() {
+                this.running = false;
+                Logger.stateChange('RUNNING', 'GAME_OVER');
+                Logger.gameEvent('GAME_OVER', { finalScore: this.score, highScore: this.highScore });
+
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    localStorage.setItem('pigeonHighScore', this.highScore);
+                    document.getElementById('highScore').textContent = this.highScore;
+                    Logger.gameEvent('NEW_HIGH_SCORE', { score: this.highScore });
+                }
+
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('gameOver').style.display = 'block';
+            },
+
+            // Test API for headless testing
+            test: {
+                getState() {
+                    return {
+                        running: Game.running,
+                        score: Game.score,
+                        pigeon: Game.pigeon ? { ...Game.pigeon } : null,
+                        catCount: Game.cats.length,
+                        breadcrumbCount: Game.breadcrumbs.length
+                    };
+                },
+
+                simulateInput(key, duration = 100) {
+                    Game.keys[key] = true;
+                    setTimeout(() => { Game.keys[key] = false; }, duration);
+                    Logger.log('TEST', `Simulated key: ${key} for ${duration}ms`);
+                },
+
+                runFrames(count) {
+                    for (let i = 0; i < count; i++) {
+                        Game.update(performance.now());
+                    }
+                    Logger.log('TEST', `Ran ${count} update frames`);
+                    return this.getState();
                 }
             }
-        }
+        };
 
-        // Draw game
-        function draw() {
-            drawBackground();
+        // Initialize on load
+        window.addEventListener('load', () => Game.init());
 
-            // Draw breadcrumbs
-            breadcrumbs.forEach(drawBreadcrumb);
+        // Expose test API globally
+        window.PigeonGame = Game;
 
-            // Draw cats
-            cats.forEach(drawCat);
-
-            // Draw pigeon
-            drawPigeon(pigeon.x, pigeon.y);
-        }
-
-        // Game loop
-        function gameLoop(timestamp) {
-            if (!gameRunning) return;
-
-            update(timestamp);
-            draw();
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Start game
-        function startGame() {
-            // Reset state
-            pigeon.x = 180;
-            pigeon.y = 400;
-            breadcrumbs = [];
-            cats = [];
-            score = 0;
-            scoreElement.textContent = score;
-            lastBreadcrumbTime = 0;
-            lastCatTime = 0;
-
-            gameOverElement.style.display = 'none';
-            startBtn.textContent = 'Restart';
-            gameRunning = true;
-
-            // Spawn initial breadcrumbs
-            for (let i = 0; i < 3; i++) {
-                spawnBreadcrumb();
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // End game
-        function endGame() {
-            gameRunning = false;
-
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem('pigeonHighScore', highScore);
-                highScoreElement.textContent = highScore;
-            }
-
-            finalScoreElement.textContent = score;
-            gameOverElement.style.display = 'block';
-        }
-
-        // Initial draw
-        drawBackground();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.font = '24px Segoe UI';
-        ctx.textAlign = 'center';
-        ctx.fillText('Press Start to Play!', canvas.width / 2, canvas.height / 2);
-        drawPigeon(180, 300);
+        console.log('%c🐦 Pigeon Game Loaded!', 'font-size: 16px; font-weight: bold;');
+        console.log('Test API available at: window.PigeonGame.test');
+        console.log('  - PigeonGame.test.getState() - Get current game state');
+        console.log('  - PigeonGame.test.simulateInput(key) - Simulate key press');
+        console.log('  - PigeonGame.test.runFrames(n) - Run n update frames');
+        console.log('  - PigeonGame.toggleDebug() or F3 - Toggle debug overlay');
     </script>
 </body>
 </html>
