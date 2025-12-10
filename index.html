@@ -180,8 +180,9 @@
             <button class="btn" id="startBtn" onclick="Game.start()">Start Game</button>
         </div>
         <div class="instructions">
-            Use <strong>Arrow Keys</strong> or <strong>WASD</strong> to move |
-            <strong>SPACE</strong> to jump over cats<br>
+            <strong>SPACE</strong> to start/restart |
+            <strong>Arrow Keys</strong> or <strong>WASD</strong> to move |
+            <strong>SPACE</strong> to jump<br>
             Collect breadcrumbs, avoid cats, use trees for safety!
         </div>
     </div>
@@ -873,9 +874,13 @@
                         e.preventDefault();
                         this.toggleDebug();
                     }
-                    // Jump on spacebar
-                    if (e.key === ' ' && this.running) {
-                        this.tryJump();
+                    // Spacebar: start/restart if not running, jump if running
+                    if (e.key === ' ') {
+                        if (this.running) {
+                            this.tryJump();
+                        } else {
+                            this.start();
+                        }
                     }
                 });
 
@@ -1237,16 +1242,19 @@
                 }
 
                 // Check cat collision (not while jumping or on tree)
-                if (!this.pigeon.isJumping && !this.pigeon.onTree) {
-                    const catHitRadius = 1.0;
-                    for (const cat of this.cats) {
-                        if (cat.climbingTree) continue;
-                        const dist = Math.hypot(this.pigeon.gridX - cat.gridX, this.pigeon.gridY - cat.gridY);
-                        if (dist < catHitRadius) {
-                            Logger.collision('HIT', this.pigeon, cat);
-                            this.end();
-                            return;
+                const catHitRadius = 1.0;
+                for (const cat of this.cats) {
+                    if (cat.climbingTree) continue;
+                    const dist = Math.hypot(this.pigeon.gridX - cat.gridX, this.pigeon.gridY - cat.gridY);
+                    if (dist < catHitRadius) {
+                        // Jumping or on tree = immune to cats
+                        if (this.pigeon.isJumping || this.pigeon.onTree) {
+                            Logger.gameEvent('JUMP_DODGE', { dist: dist.toFixed(2), isJumping: this.pigeon.isJumping });
+                            continue; // Skip this cat, pigeon is safe
                         }
+                        Logger.collision('HIT', this.pigeon, cat);
+                        this.end();
+                        return;
                     }
                 }
             },
