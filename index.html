@@ -383,10 +383,6 @@
         // ============================================
         // GAME CONFIGURATION
         // ============================================
-        // Detect mobile for performance optimizations
-        const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-                          || window.innerWidth <= 700;
-
         const CONFIG = {
             CANVAS_WIDTH: 600,
             CANVAS_HEIGHT: 500,
@@ -399,11 +395,7 @@
             DESPAWN_RADIUS: 600,    // Distance from pigeon to remove old content
             TREE_DENSITY: 0.02,     // Chance of tree per tile
             POND_DENSITY: 0.015,    // Chance of pond per tile
-            DEBUG: false,
-            // Performance settings
-            SKIP_DECORATIONS: IS_MOBILE,
-            SIMPLE_WATER: IS_MOBILE,
-            TARGET_FPS: IS_MOBILE ? 30 : 60
+            DEBUG: false
         };
 
         // ============================================
@@ -664,17 +656,14 @@
                         this.ctx.fillStyle = `rgb(${r | 0}, ${g | 0}, ${b | 0})`;
                         this.ctx.fillRect(screenX, screenY, CONFIG.TILE_SIZE + 1, CONFIG.TILE_SIZE + 1);
 
-                        // Skip decorations on mobile for performance
-                        if (!CONFIG.SKIP_DECORATIONS) {
-                            if (tile.hasFlower) {
-                                this.drawFlower(screenX + CONFIG.TILE_SIZE / 2, screenY + CONFIG.TILE_SIZE / 2);
-                            }
-                            if (tile.hasRock) {
-                                this.drawRock(screenX + CONFIG.TILE_SIZE / 2, screenY + CONFIG.TILE_SIZE / 2);
-                            }
-                            if (tile.hasTuft) {
-                                this.drawGrassTuft(screenX + CONFIG.TILE_SIZE / 2, screenY + CONFIG.TILE_SIZE / 2);
-                            }
+                        if (tile.hasFlower) {
+                            this.drawFlower(screenX + CONFIG.TILE_SIZE / 2, screenY + CONFIG.TILE_SIZE / 2);
+                        }
+                        if (tile.hasRock) {
+                            this.drawRock(screenX + CONFIG.TILE_SIZE / 2, screenY + CONFIG.TILE_SIZE / 2);
+                        }
+                        if (tile.hasTuft) {
+                            this.drawGrassTuft(screenX + CONFIG.TILE_SIZE / 2, screenY + CONFIG.TILE_SIZE / 2);
                         }
                     }
                 }
@@ -946,17 +935,7 @@
             },
 
             drawBreadcrumb(screenX, screenY) {
-                // Simplified animation on mobile
-                const y = IS_MOBILE ? screenY : screenY + Math.sin(performance.now() / 300 + screenX * 0.1) * 3;
-
-                if (IS_MOBILE) {
-                    // Simple solid color for mobile
-                    this.ctx.fillStyle = '#DEB887';
-                    this.ctx.beginPath();
-                    this.ctx.arc(screenX, y, 8, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    return;
-                }
+                const y = screenY + Math.sin(performance.now() / 300 + screenX * 0.1) * 3;
 
                 // Glow
                 this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
@@ -1022,20 +1001,6 @@
             },
 
             drawPond(screenX, screenY, radiusX, radiusY) {
-                if (CONFIG.SIMPLE_WATER) {
-                    // Simplified water for mobile - no gradients or animations
-                    this.ctx.fillStyle = '#1E6090';
-                    this.ctx.beginPath();
-                    this.ctx.ellipse(screenX, screenY, radiusX, radiusY, 0, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    // Simple highlight
-                    this.ctx.fillStyle = 'rgba(135, 206, 235, 0.5)';
-                    this.ctx.beginPath();
-                    this.ctx.ellipse(screenX - radiusX * 0.2, screenY - radiusY * 0.2, radiusX * 0.4, radiusY * 0.3, 0, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    return;
-                }
-
                 // Water shadow/depth
                 this.ctx.fillStyle = 'rgba(0, 50, 80, 0.6)';
                 this.ctx.beginPath();
@@ -1077,25 +1042,6 @@
 
             drawDiamond(screenX, screenY) {
                 const size = 18;
-
-                if (IS_MOBILE) {
-                    // Simplified diamond for mobile
-                    this.ctx.fillStyle = '#00FFFF';
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(screenX, screenY - size);
-                    this.ctx.lineTo(screenX + size, screenY);
-                    this.ctx.lineTo(screenX, screenY + size * 1.2);
-                    this.ctx.lineTo(screenX - size, screenY);
-                    this.ctx.closePath();
-                    this.ctx.fill();
-                    // Simple white center
-                    this.ctx.fillStyle = '#FFF';
-                    this.ctx.beginPath();
-                    this.ctx.arc(screenX, screenY, 5, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    return;
-                }
-
                 const bob = Math.sin(performance.now() / 250) * 4;
                 const y = screenY + bob;
                 const rotate = performance.now() / 500;
@@ -1169,7 +1115,6 @@
             lastBreadcrumbSpawn: 0,
             lastChestSpawn: 0,
             lastDiamondSpawn: 0,
-            lastFrameTime: 0,
 
             init() {
                 const canvas = document.getElementById('gameCanvas');
@@ -1785,16 +1730,6 @@
 
             loop(timestamp) {
                 if (!this.running) return;
-
-                // Frame rate throttling for mobile
-                if (IS_MOBILE) {
-                    const frameInterval = 1000 / CONFIG.TARGET_FPS;
-                    if (timestamp - this.lastFrameTime < frameInterval) {
-                        requestAnimationFrame((t) => this.loop(t));
-                        return;
-                    }
-                    this.lastFrameTime = timestamp;
-                }
 
                 this.update(timestamp);
                 this.render();
