@@ -25,8 +25,7 @@ const World = {
             const tree = {
                 x: pos.x,
                 y: pos.y,
-                radius: CONFIG.TREE_COLLISION_RADIUS,
-                climbingCat: null
+                radius: CONFIG.TREE_COLLISION_RADIUS
             };
             this.trees.set(key, tree);
             return tree;

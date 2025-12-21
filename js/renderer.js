@@ -161,7 +161,7 @@ const Renderer = {
     // Trees
     // ========================================
 
-    drawTree(screenX, screenY, hasPigeon = false, hasCat = false) {
+    drawTree(screenX, screenY, hasPigeon = false) {
         // Shadow
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         this.ctx.beginPath();
@@ -182,7 +182,6 @@ const Renderer = {
         }
 
         if (hasPigeon) this._drawPigeonOnTree(screenX, screenY);
-        if (hasCat) this._drawCatOnTree(screenX, screenY);
     },
 
     _drawPigeonOnTree(x, y) {
@@ -194,17 +193,6 @@ const Renderer = {
         this.ctx.fillStyle = '#607080';
         this.ctx.beginPath();
         this.ctx.arc(x + 8, y - 90, 6, 0, Math.PI * 2);
-        this.ctx.fill();
-    },
-
-    _drawCatOnTree(x, y) {
-        this.ctx.fillStyle = '#E85D04';
-        this.ctx.beginPath();
-        this.ctx.ellipse(x + 12, y - 30, 10, 8, 0.3, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        this.ctx.beginPath();
-        this.ctx.arc(x + 18, y - 35, 7, 0, Math.PI * 2);
         this.ctx.fill();
     },
 
