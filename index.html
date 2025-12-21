@@ -163,6 +163,27 @@
             to { transform: translateX(-50%) scale(1.05); }
         }
 
+        .cat-eater {
+            position: absolute;
+            top: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #00ffff 0%, #ff00ff 100%);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            display: none;
+            animation: rainbow 0.5s ease-in-out infinite alternate;
+            text-shadow: 0 0 5px #000;
+        }
+
+        @keyframes rainbow {
+            from { transform: translateX(-50%) scale(1); filter: hue-rotate(0deg); }
+            to { transform: translateX(-50%) scale(1.05); filter: hue-rotate(30deg); }
+        }
+
         /* Mobile touch controls */
         .touch-controls {
             display: none;
@@ -336,6 +357,7 @@
             </div>
             <div class="jump-indicator" id="jumpIndicator">SPACE to Jump</div>
             <div class="speed-boost" id="speedBoost">SPEED BOOST! 20s</div>
+            <div class="cat-eater" id="catEater">EAT CATS! 20s</div>
         </div>
         <div class="controls">
             <button class="btn" id="startBtn" onclick="Game.start()">Start Game</button>
@@ -372,6 +394,7 @@
             SPAWN_RADIUS: 400,      // Distance from pigeon to spawn new content
             DESPAWN_RADIUS: 600,    // Distance from pigeon to remove old content
             TREE_DENSITY: 0.02,     // Chance of tree per tile
+            POND_DENSITY: 0.015,    // Chance of pond per tile
             DEBUG: false
         };
 
@@ -392,6 +415,7 @@
         // ============================================
         const World = {
             trees: new Map(),       // key: "x,y" -> tree object
+            ponds: new Map(),       // key: "x,y" -> pond object
             groundCache: new Map(), // key: "x,y" -> ground tile data
 
             getTreeKey(x, y) {
@@ -424,6 +448,78 @@
                 }
 
                 this.trees.set(key, null);
+                return null;
+            },
+
+            hasPondAt(worldX, worldY) {
+                const tx = Math.floor(worldX / CONFIG.TILE_SIZE);
+                const ty = Math.floor(worldY / CONFIG.TILE_SIZE);
+                const key = `${tx},${ty}`;
+
+                if (this.ponds.has(key)) {
+                    return this.ponds.get(key);
+                }
+
+                // Don't place pond where tree exists
+                if (this.hasTreeAt(worldX, worldY)) {
+                    this.ponds.set(key, null);
+                    return null;
+                }
+
+                // Deterministically decide if there's a pond here
+                const h = hash(tx, ty, 99);
+                if (h < CONFIG.POND_DENSITY) {
+                    const pond = {
+                        x: tx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+                        y: ty * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+                        radiusX: 35 + hash(tx, ty, 100) * 20,
+                        radiusY: 25 + hash(tx, ty, 101) * 15
+                    };
+                    this.ponds.set(key, pond);
+                    return pond;
+                }
+
+                this.ponds.set(key, null);
+                return null;
+            },
+
+            getPondsInView(camX, camY, width, height) {
+                const result = [];
+                const margin = CONFIG.TILE_SIZE * 2;
+                const startX = Math.floor((camX - margin) / CONFIG.TILE_SIZE);
+                const startY = Math.floor((camY - margin) / CONFIG.TILE_SIZE);
+                const endX = Math.ceil((camX + width + margin) / CONFIG.TILE_SIZE);
+                const endY = Math.ceil((camY + height + margin) / CONFIG.TILE_SIZE);
+
+                for (let ty = startY; ty <= endY; ty++) {
+                    for (let tx = startX; tx <= endX; tx++) {
+                        const pond = this.hasPondAt(tx * CONFIG.TILE_SIZE, ty * CONFIG.TILE_SIZE);
+                        if (pond) {
+                            result.push(pond);
+                        }
+                    }
+                }
+                return result;
+            },
+
+            isInPond(worldX, worldY) {
+                const searchRadius = 2;
+                const tx = Math.floor(worldX / CONFIG.TILE_SIZE);
+                const ty = Math.floor(worldY / CONFIG.TILE_SIZE);
+
+                for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+                    for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+                        const pond = this.hasPondAt((tx + dx) * CONFIG.TILE_SIZE, (ty + dy) * CONFIG.TILE_SIZE);
+                        if (pond) {
+                            // Check if point is inside ellipse
+                            const normX = (worldX - pond.x) / pond.radiusX;
+                            const normY = (worldY - pond.y) / pond.radiusY;
+                            if (normX * normX + normY * normY < 1) {
+                                return pond;
+                            }
+                        }
+                    }
+                }
                 return null;
             },
 
@@ -497,6 +593,7 @@
 
             reset() {
                 this.trees.clear();
+                this.ponds.clear();
                 this.groundCache.clear();
             }
         };
@@ -903,6 +1000,105 @@
                 this.ctx.beginPath();
                 this.ctx.ellipse(screenX, y - 27, 7, 4, 0, 0, Math.PI * 2);
                 this.ctx.fill();
+            },
+
+            drawPond(screenX, screenY, radiusX, radiusY) {
+                // Water shadow/depth
+                this.ctx.fillStyle = 'rgba(0, 50, 80, 0.6)';
+                this.ctx.beginPath();
+                this.ctx.ellipse(screenX + 3, screenY + 3, radiusX, radiusY, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Main water
+                const waterGrad = this.ctx.createRadialGradient(
+                    screenX - radiusX * 0.3, screenY - radiusY * 0.3, 0,
+                    screenX, screenY, radiusX
+                );
+                waterGrad.addColorStop(0, '#87CEEB');
+                waterGrad.addColorStop(0.4, '#4169E1');
+                waterGrad.addColorStop(0.8, '#1E90FF');
+                waterGrad.addColorStop(1, '#00008B');
+
+                this.ctx.fillStyle = waterGrad;
+                this.ctx.beginPath();
+                this.ctx.ellipse(screenX, screenY, radiusX, radiusY, 0, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Water ripples
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.lineWidth = 1;
+                const ripplePhase = performance.now() / 1000;
+                for (let i = 0; i < 3; i++) {
+                    const rippleSize = 0.3 + ((ripplePhase + i * 0.3) % 1) * 0.5;
+                    this.ctx.beginPath();
+                    this.ctx.ellipse(screenX, screenY, radiusX * rippleSize, radiusY * rippleSize, 0, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                }
+
+                // Highlight
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                this.ctx.beginPath();
+                this.ctx.ellipse(screenX - radiusX * 0.3, screenY - radiusY * 0.3, radiusX * 0.3, radiusY * 0.2, -0.5, 0, Math.PI * 2);
+                this.ctx.fill();
+            },
+
+            drawDiamond(screenX, screenY) {
+                const bob = Math.sin(performance.now() / 250) * 4;
+                const y = screenY + bob;
+                const rotate = performance.now() / 500;
+
+                // Glow
+                this.ctx.fillStyle = 'rgba(0, 255, 255, 0.4)';
+                this.ctx.beginPath();
+                this.ctx.arc(screenX, y, 25, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                this.ctx.save();
+                this.ctx.translate(screenX, y);
+
+                // Diamond shape
+                const size = 18;
+
+                // Main diamond body
+                const diamondGrad = this.ctx.createLinearGradient(-size, 0, size, 0);
+                diamondGrad.addColorStop(0, '#00FFFF');
+                diamondGrad.addColorStop(0.3, '#FFFFFF');
+                diamondGrad.addColorStop(0.5, '#00FFFF');
+                diamondGrad.addColorStop(0.7, '#FF00FF');
+                diamondGrad.addColorStop(1, '#00FFFF');
+
+                this.ctx.fillStyle = diamondGrad;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, -size);        // Top
+                this.ctx.lineTo(size, 0);         // Right
+                this.ctx.lineTo(0, size * 1.2);   // Bottom
+                this.ctx.lineTo(-size, 0);        // Left
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Inner shine
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, -size * 0.6);
+                this.ctx.lineTo(size * 0.4, 0);
+                this.ctx.lineTo(0, size * 0.3);
+                this.ctx.lineTo(-size * 0.4, 0);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Sparkles
+                this.ctx.fillStyle = '#FFF';
+                const sparkleAngle = rotate;
+                for (let i = 0; i < 4; i++) {
+                    const angle = sparkleAngle + (i * Math.PI / 2);
+                    const sx = Math.cos(angle) * size * 0.5;
+                    const sy = Math.sin(angle) * size * 0.5;
+                    this.ctx.beginPath();
+                    this.ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                this.ctx.restore();
             }
         };
 
@@ -917,10 +1113,12 @@
             cats: [],
             breadcrumbs: [],
             chests: [],
+            diamonds: [],
             keys: {},
             lastCatSpawn: 0,
             lastBreadcrumbSpawn: 0,
             lastChestSpawn: 0,
+            lastDiamondSpawn: 0,
 
             init() {
                 const canvas = document.getElementById('gameCanvas');
@@ -1041,16 +1239,19 @@
                     jumpStartTime: 0,
                     lastJumpTime: 0,
                     onTree: null,
-                    speedBoostEnd: 0
+                    speedBoostEnd: 0,
+                    catEaterEnd: 0
                 };
 
                 this.cats = [];
                 this.breadcrumbs = [];
                 this.chests = [];
+                this.diamonds = [];
                 this.score = 0;
                 this.lastCatSpawn = 0;
                 this.lastBreadcrumbSpawn = 0;
                 this.lastChestSpawn = 0;
+                this.lastDiamondSpawn = 0;
 
                 document.getElementById('score').textContent = this.score;
                 document.getElementById('gameOver').style.display = 'none';
@@ -1141,10 +1342,25 @@
                 const x = this.pigeon.x + Math.cos(angle) * dist;
                 const y = this.pigeon.y + Math.sin(angle) * dist;
 
-                // Don't spawn on trees
+                // Don't spawn on trees or ponds
                 const nearTree = World.getNearestTree(x, y, 40);
-                if (!nearTree) {
+                const inPond = World.isInPond(x, y);
+                if (!nearTree && !inPond) {
                     this.chests.push({ x, y });
+                }
+            },
+
+            spawnDiamond() {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 180 + Math.random() * 220;
+                const x = this.pigeon.x + Math.cos(angle) * dist;
+                const y = this.pigeon.y + Math.sin(angle) * dist;
+
+                // Don't spawn on trees or ponds
+                const nearTree = World.getNearestTree(x, y, 40);
+                const inPond = World.isInPond(x, y);
+                if (!nearTree && !inPond) {
+                    this.diamonds.push({ x, y });
                 }
             },
 
@@ -1234,6 +1450,12 @@
                     this.lastChestSpawn = timestamp;
                 }
 
+                // Spawn diamonds (very rare)
+                if (timestamp - this.lastDiamondSpawn > 25000 && this.diamonds.length < 1) {
+                    this.spawnDiamond();
+                    this.lastDiamondSpawn = timestamp;
+                }
+
                 // Update speed boost
                 const speedBoostEl = document.getElementById('speedBoost');
                 const isBoosted = timestamp < this.pigeon.speedBoostEnd;
@@ -1245,6 +1467,17 @@
                 } else {
                     speedBoostEl.style.display = 'none';
                     this.pigeon.speed = CONFIG.PIGEON_SPEED;
+                }
+
+                // Update cat-eater mode
+                const catEaterEl = document.getElementById('catEater');
+                const canEatCats = timestamp < this.pigeon.catEaterEnd;
+                if (canEatCats) {
+                    const remaining = Math.ceil((this.pigeon.catEaterEnd - timestamp) / 1000);
+                    catEaterEl.textContent = `EAT CATS! ${remaining}s`;
+                    catEaterEl.style.display = 'block';
+                } else {
+                    catEaterEl.style.display = 'none';
                 }
 
                 // Update cats
@@ -1279,8 +1512,24 @@
                         cat.direction = dx > 0 ? 1 : -1;
                     }
 
-                    cat.x += cat.dirX * cat.speed;
-                    cat.y += cat.dirY * cat.speed;
+                    // Calculate new position
+                    const newX = cat.x + cat.dirX * cat.speed;
+                    const newY = cat.y + cat.dirY * cat.speed;
+
+                    // Cats cannot enter ponds - they go around
+                    const inPond = World.isInPond(newX, newY);
+                    if (!inPond) {
+                        cat.x = newX;
+                        cat.y = newY;
+                    } else {
+                        // Try to go around the pond
+                        const altX = cat.x + cat.dirY * cat.speed;
+                        const altY = cat.y - cat.dirX * cat.speed;
+                        if (!World.isInPond(altX, altY)) {
+                            cat.x = altX;
+                            cat.y = altY;
+                        }
+                    }
 
                     // Check if cat should climb tree
                     const nearTree = World.getNearestTree(cat.x, cat.y, 25);
@@ -1327,18 +1576,43 @@
                         if (dist > CONFIG.DESPAWN_RADIUS) return false;
                         return true;
                     });
+
+                    // Check diamond collection
+                    this.diamonds = this.diamonds.filter(diamond => {
+                        const dist = distance(this.pigeon.x, this.pigeon.y, diamond.x, diamond.y);
+                        if (dist < 35) {
+                            // Activate cat-eater mode for 20 seconds
+                            this.pigeon.catEaterEnd = timestamp + 20000;
+                            this.score += 100;
+                            document.getElementById('score').textContent = this.score;
+                            return false;
+                        }
+                        // Remove far diamonds
+                        if (dist > CONFIG.DESPAWN_RADIUS) return false;
+                        return true;
+                    });
                 }
 
                 // Check cat collision
+                const canEatCatsNow = timestamp < this.pigeon.catEaterEnd;
                 if (!this.pigeon.isJumping && !this.pigeon.onTree) {
-                    for (const cat of this.cats) {
-                        if (cat.climbingTree) continue;
+                    this.cats = this.cats.filter(cat => {
+                        if (cat.climbingTree) return true;
                         const dist = distance(this.pigeon.x, this.pigeon.y, cat.x, cat.y);
                         if (dist < 35) {
-                            this.end();
-                            return;
+                            if (canEatCatsNow) {
+                                // Eat the cat!
+                                this.score += 200;
+                                document.getElementById('score').textContent = this.score;
+                                return false; // Remove this cat
+                            } else {
+                                // Game over
+                                this.end();
+                                return true;
+                            }
                         }
-                    }
+                        return true;
+                    });
                 }
             },
 
@@ -1349,6 +1623,13 @@
 
                 Renderer.clear();
                 Renderer.drawGround(camX, camY);
+
+                // Draw ponds (on ground level, before entities)
+                const ponds = World.getPondsInView(camX, camY, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+                ponds.forEach(pond => {
+                    const screen = Renderer.worldToScreen(pond.x, pond.y, camX, camY);
+                    Renderer.drawPond(screen.x, screen.y, pond.radiusX, pond.radiusY);
+                });
 
                 // Collect all entities for depth sorting
                 const entities = [];
@@ -1378,6 +1659,15 @@
                         type: 'chest',
                         y: chest.y,
                         data: chest
+                    });
+                });
+
+                // Diamonds
+                this.diamonds.forEach(diamond => {
+                    entities.push({
+                        type: 'diamond',
+                        y: diamond.y,
+                        data: diamond
                     });
                 });
 
@@ -1420,6 +1710,9 @@
                             break;
                         case 'chest':
                             Renderer.drawChest(screen.x, screen.y);
+                            break;
+                        case 'diamond':
+                            Renderer.drawDiamond(screen.x, screen.y);
                             break;
                         case 'cat':
                             Renderer.drawCat(screen.x, screen.y, entity.data.direction);
