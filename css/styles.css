@@ -179,6 +179,20 @@ canvas {
     text-shadow: 0 0 5px #000;
 }
 
+.friendly-mode {
+    position: absolute;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #90EE90 0%, #32CD32 100%);
+    color: #1a1a1a;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    display: none;
+}
+
 /* Animations */
 @keyframes pulse {
     from { transform: translateX(-50%) scale(1); }

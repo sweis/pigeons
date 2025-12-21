@@ -97,6 +97,7 @@ pigeons/
 - Navigate around ponds by trying perpendicular movement
 - Cannot climb trees (trees are safe zones for the pigeon)
 - Run away (30% faster) during Eat Cats mode
+- Friendly mode (press C): Cats wander randomly and don't hurt the pigeon
 
 ### Performance Considerations
 - Ground tiles cached in Map
