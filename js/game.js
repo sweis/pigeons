@@ -7,6 +7,7 @@ const Game = {
     running: false,
     score: 0,
     highScore: 0,
+    friendlyCatMode: false,
     pigeon: null,
     cats: [],
     breadcrumbs: [],
@@ -47,6 +48,10 @@ const Game = {
 
             if (e.key === ' ') {
                 this.running ? this.tryJump() : this.start();
+            }
+
+            if (e.key.toLowerCase() === 'c' && this.running) {
+                this.friendlyCatMode = !this.friendlyCatMode;
             }
         });
 
@@ -390,6 +395,10 @@ const Game = {
         } else {
             catEaterEl.style.display = 'none';
         }
+
+        // Friendly cat mode indicator
+        const friendlyEl = document.getElementById('friendlyMode');
+        friendlyEl.style.display = this.friendlyCatMode ? 'block' : 'none';
     },
 
     updateCats(timestamp) {
@@ -402,6 +411,20 @@ const Game = {
     },
 
     updateCatDirection(cat, canEatCats) {
+        // Friendly mode: cats wander randomly
+        if (this.friendlyCatMode) {
+            // Change direction occasionally
+            if (!cat.wanderTimer || cat.wanderTimer <= 0) {
+                const angle = randomAngle();
+                cat.dirX = Math.cos(angle);
+                cat.dirY = Math.sin(angle);
+                cat.direction = cat.dirX > 0 ? 1 : -1;
+                cat.wanderTimer = 60 + Math.random() * 120; // Change every 1-3 seconds
+            }
+            cat.wanderTimer--;
+            return;
+        }
+
         const dx = this.pigeon.x - cat.x;
         const dy = this.pigeon.y - cat.y;
         const dir = normalize(dx, dy);
@@ -418,7 +441,12 @@ const Game = {
     },
 
     updateCatPosition(cat, canEatCats) {
-        const speed = canEatCats ? cat.speed * CONFIG.CAT_FLEE_MULTIPLIER : cat.speed;
+        let speed = cat.speed;
+        if (this.friendlyCatMode) {
+            speed = cat.speed * 0.5; // Slower, relaxed wandering
+        } else if (canEatCats) {
+            speed = cat.speed * CONFIG.CAT_FLEE_MULTIPLIER;
+        }
         const newX = cat.x + cat.dirX * speed;
         const newY = cat.y + cat.dirY * speed;
 
@@ -494,6 +522,7 @@ const Game = {
 
     checkCatCollision(timestamp) {
         if (this.pigeon.isJumping) return;
+        if (this.friendlyCatMode) return; // Cats are friendly!
 
         const canEatCats = timestamp < this.pigeon.catEaterEnd;
 
