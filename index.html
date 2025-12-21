@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Pigeon Game - Isometric</title>
     <style>
         * {
@@ -159,6 +159,167 @@
         .jump-indicator.cooldown {
             color: #888;
         }
+
+        /* Mobile touch controls */
+        .touch-controls {
+            display: none;
+            margin-top: 15px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            touch-action: none;
+        }
+
+        .dpad-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+        }
+
+        .dpad-btn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(145deg, #3a3a5a, #2a2a4a);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .dpad-btn:active, .dpad-btn.active {
+            background: linear-gradient(145deg, #4a4a7a, #3a3a6a);
+            transform: scale(0.95);
+        }
+
+        .dpad-up { top: 0; left: 50%; transform: translateX(-50%); }
+        .dpad-down { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .dpad-left { left: 0; top: 50%; transform: translateY(-50%); }
+        .dpad-right { right: 0; top: 50%; transform: translateY(-50%); }
+
+        .dpad-up:active, .dpad-up.active { transform: translateX(-50%) scale(0.95); }
+        .dpad-down:active, .dpad-down.active { transform: translateX(-50%) scale(0.95); }
+        .dpad-left:active, .dpad-left.active { transform: translateY(-50%) scale(0.95); }
+        .dpad-right:active, .dpad-right.active { transform: translateY(-50%) scale(0.95); }
+
+        .jump-btn {
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(145deg, #e94560, #c23a51);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
+        }
+
+        .jump-btn:active, .jump-btn.active {
+            background: linear-gradient(145deg, #c23a51, #a02040);
+            transform: scale(0.95);
+        }
+
+        .jump-btn.cooldown {
+            background: linear-gradient(145deg, #555, #444);
+            box-shadow: none;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 700px) {
+            body {
+                padding: 10px;
+                align-items: flex-start;
+            }
+
+            .game-container {
+                padding: 15px;
+                border-radius: 15px;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .header {
+                margin-bottom: 10px;
+                padding: 0 5px;
+            }
+
+            .score, .high-score {
+                font-size: 1rem;
+            }
+
+            canvas {
+                width: 100% !important;
+                height: auto !important;
+            }
+
+            .controls {
+                margin-top: 10px;
+            }
+
+            .btn {
+                padding: 12px 30px;
+                font-size: 1rem;
+            }
+
+            .instructions {
+                display: none;
+            }
+
+            .touch-controls {
+                display: flex;
+            }
+
+            .debug-toggle {
+                display: none;
+            }
+
+            .jump-indicator {
+                font-size: 0.75rem;
+                padding: 4px 10px;
+            }
+
+            .game-over {
+                padding: 25px 35px;
+            }
+
+            .game-over h2 {
+                font-size: 1.5rem;
+            }
+
+            .game-over p {
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .dpad-container {
+                width: 120px;
+                height: 120px;
+            }
+
+            .dpad-btn {
+                width: 42px;
+                height: 42px;
+                font-size: 20px;
+            }
+
+            .jump-btn {
+                width: 75px;
+                height: 75px;
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -184,6 +345,15 @@
             <strong>Arrow Keys</strong> or <strong>WASD</strong> to move |
             <strong>SPACE</strong> to jump<br>
             Collect breadcrumbs, avoid cats, use trees for safety!
+        </div>
+        <div class="touch-controls" id="touchControls">
+            <div class="dpad-container">
+                <button class="dpad-btn dpad-up" data-dir="up">▲</button>
+                <button class="dpad-btn dpad-down" data-dir="down">▼</button>
+                <button class="dpad-btn dpad-left" data-dir="left">◀</button>
+                <button class="dpad-btn dpad-right" data-dir="right">▶</button>
+            </div>
+            <button class="jump-btn" id="jumpBtn">JUMP</button>
         </div>
     </div>
     <button class="debug-toggle" onclick="Game.toggleDebug()">Toggle Debug (F3)</button>
@@ -1175,6 +1345,9 @@
                     this.keys[e.key.toLowerCase()] = false;
                 });
 
+                // Initialize touch controls
+                this.initTouchControls();
+
                 this.renderStartScreen();
                 Logger.log('GAME', 'Initialization complete');
             },
@@ -1182,6 +1355,77 @@
             toggleDebug() {
                 CONFIG.DEBUG = !CONFIG.DEBUG;
                 Logger.log('DEBUG', `Debug mode: ${CONFIG.DEBUG ? 'ON' : 'OFF'}`);
+            },
+
+            initTouchControls() {
+                const dpadBtns = document.querySelectorAll('.dpad-btn');
+                const jumpBtn = document.getElementById('jumpBtn');
+
+                // Map directions to keys
+                const dirKeyMap = {
+                    'up': 'w',
+                    'down': 's',
+                    'left': 'a',
+                    'right': 'd'
+                };
+
+                // D-pad touch handlers
+                dpadBtns.forEach(btn => {
+                    const dir = btn.dataset.dir;
+                    const key = dirKeyMap[dir];
+
+                    const startHandler = (e) => {
+                        e.preventDefault();
+                        this.keys[key] = true;
+                        btn.classList.add('active');
+                    };
+
+                    const endHandler = (e) => {
+                        e.preventDefault();
+                        this.keys[key] = false;
+                        btn.classList.remove('active');
+                    };
+
+                    btn.addEventListener('touchstart', startHandler, { passive: false });
+                    btn.addEventListener('touchend', endHandler, { passive: false });
+                    btn.addEventListener('touchcancel', endHandler, { passive: false });
+
+                    // Also handle mouse for testing on desktop
+                    btn.addEventListener('mousedown', startHandler);
+                    btn.addEventListener('mouseup', endHandler);
+                    btn.addEventListener('mouseleave', endHandler);
+                });
+
+                // Jump button handler
+                const jumpStart = (e) => {
+                    e.preventDefault();
+                    if (this.running) {
+                        this.tryJump();
+                    } else {
+                        this.start();
+                    }
+                    jumpBtn.classList.add('active');
+                };
+
+                const jumpEnd = (e) => {
+                    e.preventDefault();
+                    jumpBtn.classList.remove('active');
+                };
+
+                jumpBtn.addEventListener('touchstart', jumpStart, { passive: false });
+                jumpBtn.addEventListener('touchend', jumpEnd, { passive: false });
+                jumpBtn.addEventListener('touchcancel', jumpEnd, { passive: false });
+                jumpBtn.addEventListener('mousedown', jumpStart);
+                jumpBtn.addEventListener('mouseup', jumpEnd);
+                jumpBtn.addEventListener('mouseleave', jumpEnd);
+
+                // Prevent default touch behaviors on game container
+                const gameContainer = document.querySelector('.game-container');
+                gameContainer.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                }, { passive: false });
+
+                Logger.log('GAME', 'Touch controls initialized');
             },
 
             renderStartScreen() {
@@ -1378,16 +1622,23 @@
 
                 // Update jump indicator
                 const jumpIndicator = document.getElementById('jumpIndicator');
+                const jumpBtn = document.getElementById('jumpBtn');
                 const canJump = timestamp - this.pigeon.lastJumpTime >= CONFIG.JUMP_COOLDOWN;
                 if (this.pigeon.isJumping) {
                     jumpIndicator.textContent = 'JUMPING!';
                     jumpIndicator.className = 'jump-indicator';
+                    jumpBtn.textContent = 'JUMP!';
+                    jumpBtn.classList.remove('cooldown');
                 } else if (this.pigeon.onTree) {
                     jumpIndicator.textContent = 'SPACE to Jump Off';
                     jumpIndicator.className = 'jump-indicator';
+                    jumpBtn.textContent = 'JUMP OFF';
+                    jumpBtn.classList.remove('cooldown');
                 } else {
                     jumpIndicator.textContent = canJump ? 'SPACE to Jump' : 'Jump Cooldown...';
                     jumpIndicator.className = 'jump-indicator' + (canJump ? '' : ' cooldown');
+                    jumpBtn.textContent = canJump ? 'JUMP' : '...';
+                    jumpBtn.classList.toggle('cooldown', !canJump);
                 }
 
                 // Don't move if on tree
