@@ -95,7 +95,7 @@ pigeons/
 ### Cat AI
 - Cats chase pigeon using direction vectors
 - Navigate around ponds by trying perpendicular movement
-- Climb trees when pigeon is on them
+- Cannot climb trees (trees are safe zones for the pigeon)
 - Run away (30% faster) during Eat Cats mode
 
 ### Performance Considerations

@@ -244,9 +244,7 @@ const Game = {
             dirX: dir.x,
             dirY: dir.y,
             speed: CONFIG.CAT_BASE_SPEED + this.score / 500,
-            direction: dir.x > 0 ? 1 : -1,
-            climbingTree: null,
-            climbProgress: 0
+            direction: dir.x > 0 ? 1 : -1
         });
     },
 
@@ -398,31 +396,9 @@ const Game = {
         const canEatCats = timestamp < this.pigeon.catEaterEnd;
 
         this.cats.forEach(cat => {
-            if (cat.climbingTree) {
-                this.updateClimbingCat(cat);
-                return;
-            }
-
             this.updateCatDirection(cat, canEatCats);
             this.updateCatPosition(cat, canEatCats);
-            this.checkCatTreeClimb(cat);
         });
-    },
-
-    updateClimbingCat(cat) {
-        if (this.pigeon.onTree !== cat.climbingTree) {
-            cat.climbProgress -= 0.01;
-            if (cat.climbProgress <= 0) {
-                cat.climbingTree.climbingCat = null;
-                cat.climbingTree = null;
-                cat.climbProgress = 0;
-            }
-        } else {
-            cat.climbProgress += 0.005;
-            if (cat.climbProgress >= 1) {
-                this.end();
-            }
-        }
     },
 
     updateCatDirection(cat, canEatCats) {
@@ -460,23 +436,10 @@ const Game = {
         }
     },
 
-    checkCatTreeClimb(cat) {
-        const nearTree = World.getNearestTree(cat.x, cat.y, CONFIG.TREE_COLLISION_RADIUS);
-
-        if (nearTree && this.pigeon.onTree === nearTree && !nearTree.climbingCat) {
-            cat.climbingTree = nearTree;
-            nearTree.climbingCat = cat;
-            cat.climbProgress = 0;
-            cat.x = nearTree.x;
-            cat.y = nearTree.y;
-        }
-    },
-
     cleanupEntities() {
-        this.cats = this.cats.filter(cat => {
-            if (cat.climbingTree) return true;
-            return distance(cat.x, cat.y, this.pigeon.x, this.pigeon.y) < CONFIG.DESPAWN_RADIUS;
-        });
+        this.cats = this.cats.filter(cat =>
+            distance(cat.x, cat.y, this.pigeon.x, this.pigeon.y) < CONFIG.DESPAWN_RADIUS
+        );
     },
 
     checkCollisions(timestamp) {
@@ -535,8 +498,6 @@ const Game = {
         const canEatCats = timestamp < this.pigeon.catEaterEnd;
 
         this.cats = this.cats.filter(cat => {
-            if (cat.climbingTree) return true;
-
             const dist = distance(this.pigeon.x, this.pigeon.y, cat.x, cat.y);
 
             if (dist < CONFIG.CAT_COLLISION_RADIUS) {
@@ -605,9 +566,7 @@ const Game = {
         });
 
         this.cats.forEach(cat => {
-            if (!cat.climbingTree) {
-                entities.push({ type: 'cat', y: cat.y, data: cat });
-            }
+            entities.push({ type: 'cat', y: cat.y, data: cat });
         });
 
         if (!this.pigeon.onTree) {
@@ -621,8 +580,7 @@ const Game = {
         switch (entity.type) {
             case 'tree':
                 const hasPigeon = this.pigeon.onTree === entity.data;
-                const hasCat = entity.data.climbingCat !== null;
-                Renderer.drawTree(screen.x, screen.y, hasPigeon, hasCat);
+                Renderer.drawTree(screen.x, screen.y, hasPigeon);
                 break;
             case 'breadcrumb':
                 Renderer.drawBreadcrumb(screen.x, screen.y);
