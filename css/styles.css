@@ -30,6 +30,22 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+/* Title */
+.game-title {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 15px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffd93d 25%, #6bcb77 50%, #4d96ff 75%, #9b59b6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-family: 'Impact', 'Arial Black', sans-serif;
+}
+
 /* Header */
 .header {
     display: flex;
@@ -300,6 +316,11 @@ canvas {
 
     .score, .high-score {
         font-size: 1rem;
+    }
+
+    .game-title {
+        font-size: 1.8rem;
+        margin-bottom: 10px;
     }
 
     canvas {
