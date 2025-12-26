@@ -2,6 +2,8 @@
 
 > **Note:** Update this file as you make changes to the codebase. Keep it current with any architectural decisions, new features, or important implementation details.
 
+> **Important:** Bump the version number in `index.html` (the `.version` div) on every commit.
+
 ## Project Overview
 
 A 2D top-down browser game where you control a pigeon collecting breadcrumbs while avoiding cats. The game features an infinite procedurally-generated world with trees, ponds, and power-ups.
