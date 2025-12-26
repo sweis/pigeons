@@ -64,7 +64,7 @@ const Game = {
             }
 
             if (e.key === ' ') {
-                this.running ? this.tryJump() : this.start();
+                this.running ? this.tryFly() : this.start();
             }
 
             if (e.key.toLowerCase() === 'c' && this.running) {
@@ -106,23 +106,23 @@ const Game = {
             btn.addEventListener('mouseleave', end);
         });
 
-        const jumpStart = (e) => {
+        const flyStart = (e) => {
             e.preventDefault();
-            this.running ? this.tryJump() : this.start();
+            this.running ? this.tryFly() : this.start();
             jumpBtn.classList.add('active');
         };
 
-        const jumpEnd = (e) => {
+        const flyEnd = (e) => {
             e.preventDefault();
             jumpBtn.classList.remove('active');
         };
 
-        jumpBtn.addEventListener('touchstart', jumpStart, { passive: false });
-        jumpBtn.addEventListener('touchend', jumpEnd, { passive: false });
-        jumpBtn.addEventListener('touchcancel', jumpEnd, { passive: false });
-        jumpBtn.addEventListener('mousedown', jumpStart);
-        jumpBtn.addEventListener('mouseup', jumpEnd);
-        jumpBtn.addEventListener('mouseleave', jumpEnd);
+        jumpBtn.addEventListener('touchstart', flyStart, { passive: false });
+        jumpBtn.addEventListener('touchend', flyEnd, { passive: false });
+        jumpBtn.addEventListener('touchcancel', flyEnd, { passive: false });
+        jumpBtn.addEventListener('mousedown', flyStart);
+        jumpBtn.addEventListener('mouseup', flyEnd);
+        jumpBtn.addEventListener('mouseleave', flyEnd);
 
         // Peaceful mode button
         let peacefulTouched = false;
@@ -231,9 +231,10 @@ const Game = {
             y: 0,
             speed: CONFIG.PIGEON_SPEED,
             direction: 1,
-            isJumping: false,
-            jumpStartTime: 0,
-            lastJumpTime: 0,
+            isFlying: false,
+            flyStartTime: 0,
+            lastFlyTime: 0,
+            flyMeter: 0,        // Stored fly time in ms
             onTree: null,
             speedBoostEnd: 0,
             catEaterEnd: 0
@@ -278,37 +279,45 @@ const Game = {
     // Player Actions
     // ========================================
 
-    tryJump() {
+    tryFly() {
         const now = performance.now();
 
-        if (this.pigeon.isJumping) return;
-        if (now - this.pigeon.lastJumpTime < CONFIG.JUMP_COOLDOWN) return;
+        // Already flying - stop flying
+        if (this.pigeon.isFlying) {
+            this.pigeon.isFlying = false;
+            return;
+        }
 
-        // Jump off tree
+        // Cooldown check
+        if (now - this.pigeon.lastFlyTime < CONFIG.FLY_COOLDOWN) return;
+
+        // Fly off tree (free, no meter cost)
         if (this.pigeon.onTree) {
             const tree = this.pigeon.onTree;
             this.pigeon.onTree = null;
-            this.pigeon.isJumping = true;
-            this.pigeon.jumpStartTime = now;
-            this.pigeon.lastJumpTime = now;
+            this.pigeon.isFlying = true;
+            this.pigeon.flyStartTime = now;
+            this.pigeon.lastFlyTime = now;
             this.pigeon.x = tree.x + 40 * this.pigeon.direction;
             return;
         }
 
-        // Jump onto nearby tree
+        // Fly onto nearby tree (free)
         const nearTree = World.getNearestTree(this.pigeon.x, this.pigeon.y, 50);
         if (nearTree) {
             this.pigeon.onTree = nearTree;
             this.pigeon.x = nearTree.x;
             this.pigeon.y = nearTree.y;
-            this.pigeon.lastJumpTime = now;
+            this.pigeon.lastFlyTime = now;
             return;
         }
 
-        // Regular jump
-        this.pigeon.isJumping = true;
-        this.pigeon.jumpStartTime = now;
-        this.pigeon.lastJumpTime = now;
+        // Regular fly - requires fly meter
+        if (this.pigeon.flyMeter <= 0) return;
+
+        this.pigeon.isFlying = true;
+        this.pigeon.flyStartTime = now;
+        this.pigeon.lastFlyTime = now;
     },
 
     // ========================================
@@ -366,8 +375,8 @@ const Game = {
     // ========================================
 
     update(timestamp) {
-        this.updateJumpState(timestamp);
-        this.updateJumpIndicator(timestamp);
+        this.updateFlyState(timestamp);
+        this.updateFlyIndicator(timestamp);
         this.updatePigeonMovement();
         this.updateSpawning(timestamp);
         this.updatePowerups(timestamp);
@@ -376,31 +385,50 @@ const Game = {
         this.checkCollisions(timestamp);
     },
 
-    updateJumpState(timestamp) {
-        if (this.pigeon.isJumping && timestamp - this.pigeon.jumpStartTime > CONFIG.JUMP_DURATION) {
-            this.pigeon.isJumping = false;
+    updateFlyState(timestamp) {
+        if (!this.pigeon.isFlying) return;
+
+        // Consume fly meter while flying
+        const elapsed = timestamp - this.pigeon.flyStartTime;
+        const remaining = this.pigeon.flyMeter - elapsed;
+
+        if (remaining <= 0) {
+            // Out of fly time
+            this.pigeon.isFlying = false;
+            this.pigeon.flyMeter = 0;
+        } else {
+            // Update flyMeter to remaining time (for when we land)
+            this.pigeon.flyMeter = remaining;
+            this.pigeon.flyStartTime = timestamp;
         }
     },
 
-    updateJumpIndicator(timestamp) {
+    updateFlyIndicator(timestamp) {
         const { jumpIndicator, jumpBtn } = this.elements;
-        const canJump = timestamp - this.pigeon.lastJumpTime >= CONFIG.JUMP_COOLDOWN;
+        const flySeconds = Math.ceil(this.pigeon.flyMeter / 1000);
 
-        if (this.pigeon.isJumping) {
-            jumpIndicator.textContent = 'JUMPING!';
+        if (this.pigeon.isFlying) {
+            const elapsed = timestamp - this.pigeon.flyStartTime;
+            const remaining = Math.max(0, Math.ceil((this.pigeon.flyMeter - elapsed) / 1000));
+            jumpIndicator.textContent = `FLYING! ${remaining}s`;
             jumpIndicator.className = 'jump-indicator';
-            jumpBtn.textContent = 'JUMP!';
+            jumpBtn.textContent = 'LAND';
             jumpBtn.classList.remove('cooldown');
         } else if (this.pigeon.onTree) {
-            jumpIndicator.textContent = 'SPACE to Jump Off';
+            jumpIndicator.textContent = 'SPACE to Fly Off';
             jumpIndicator.className = 'jump-indicator';
-            jumpBtn.textContent = 'JUMP OFF';
+            jumpBtn.textContent = 'FLY OFF';
+            jumpBtn.classList.remove('cooldown');
+        } else if (flySeconds > 0) {
+            jumpIndicator.textContent = `SPACE to Fly (${flySeconds}s)`;
+            jumpIndicator.className = 'jump-indicator';
+            jumpBtn.textContent = `FLY ${flySeconds}s`;
             jumpBtn.classList.remove('cooldown');
         } else {
-            jumpIndicator.textContent = canJump ? 'SPACE to Jump' : 'Cooldown...';
-            jumpIndicator.className = 'jump-indicator' + (canJump ? '' : ' cooldown');
-            jumpBtn.textContent = canJump ? 'JUMP' : '...';
-            jumpBtn.classList.toggle('cooldown', !canJump);
+            jumpIndicator.textContent = 'Eat bread to fly!';
+            jumpIndicator.className = 'jump-indicator cooldown';
+            jumpBtn.textContent = 'FLY';
+            jumpBtn.classList.add('cooldown');
         }
     },
 
@@ -434,7 +462,7 @@ const Game = {
         const newY = this.pigeon.y + dir.y * this.pigeon.speed;
 
         // Check collision with trees (unless jumping)
-        const blocked = !this.pigeon.isJumping && World.getNearestTree(newX, newY, CONFIG.TREE_COLLISION_RADIUS);
+        const blocked = !this.pigeon.isFlying && World.getNearestTree(newX, newY, CONFIG.TREE_COLLISION_RADIUS);
 
         if (!blocked) {
             this.pigeon.x = newX;
@@ -557,6 +585,11 @@ const Game = {
 
             if (dist < CONFIG.PICKUP_RADIUS) {
                 this.addScore(CONFIG.BREADCRUMB_POINTS);
+                // Add fly time from bread
+                this.pigeon.flyMeter = Math.min(
+                    this.pigeon.flyMeter + CONFIG.FLY_TIME_PER_BREAD,
+                    CONFIG.MAX_FLY_TIME
+                );
                 return false;
             }
 
@@ -593,7 +626,7 @@ const Game = {
     },
 
     checkCatCollision(timestamp) {
-        if (this.pigeon.isJumping) return;
+        if (this.pigeon.isFlying) return;
         if (this.friendlyCatMode) return; // Cats are friendly!
 
         const canEatCats = timestamp < this.pigeon.catEaterEnd;
@@ -651,6 +684,9 @@ const Game = {
         const speedBoostRemaining = Math.max(0, Math.ceil((this.pigeon.speedBoostEnd - now) / 1000));
         const catEaterRemaining = Math.max(0, Math.ceil((this.pigeon.catEaterEnd - now) / 1000));
         Renderer.drawStatusIcons(speedBoostRemaining, catEaterRemaining, this.friendlyCatMode);
+
+        // Draw fly meter (left side)
+        Renderer.drawFlyMeter(this.pigeon.flyMeter, CONFIG.MAX_FLY_TIME, this.pigeon.isFlying);
     },
 
     collectEntities(camX, camY) {
@@ -702,7 +738,7 @@ const Game = {
                 Renderer.drawCat(screen.x, screen.y, entity.data.direction);
                 break;
             case 'pigeon':
-                Renderer.drawPigeon(screen.x, screen.y, entity.data.direction, entity.data.isJumping);
+                Renderer.drawPigeon(screen.x, screen.y, entity.data.direction, entity.data.isFlying);
                 break;
         }
     },
