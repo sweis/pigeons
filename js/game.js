@@ -14,6 +14,7 @@ const Game = {
     chests: [],
     diamonds: [],
     keys: {},
+    touchTarget: null, // For touch-to-move on canvas
 
     // Spawn timers
     lastCatSpawn: 0,
@@ -109,15 +110,74 @@ const Game = {
 
         // Peaceful mode button
         const peacefulBtn = document.getElementById('peacefulBtn');
-        const peacefulTap = (e) => {
+        let peacefulTouched = false;
+
+        peacefulBtn.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            peacefulTouched = true;
             if (this.running) {
                 this.friendlyCatMode = !this.friendlyCatMode;
                 peacefulBtn.classList.toggle('enabled', this.friendlyCatMode);
             }
+        }, { passive: false });
+
+        peacefulBtn.addEventListener('click', (e) => {
+            if (peacefulTouched) {
+                peacefulTouched = false;
+                return; // Ignore click after touch
+            }
+            if (this.running) {
+                this.friendlyCatMode = !this.friendlyCatMode;
+                peacefulBtn.classList.toggle('enabled', this.friendlyCatMode);
+            }
+        });
+
+        // Canvas touch-to-move
+        const canvas = document.getElementById('gameCanvas');
+
+        const getCanvasTouchPos = (e) => {
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = CONFIG.CANVAS_WIDTH / rect.width;
+            const scaleY = CONFIG.CANVAS_HEIGHT / rect.height;
+            return {
+                x: (touch.clientX - rect.left) * scaleX,
+                y: (touch.clientY - rect.top) * scaleY
+            };
         };
-        peacefulBtn.addEventListener('touchstart', peacefulTap, { passive: false });
-        peacefulBtn.addEventListener('click', peacefulTap);
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (!this.running) return;
+            e.preventDefault();
+            const pos = getCanvasTouchPos(e);
+            // Convert screen position to world position
+            const centerX = CONFIG.CANVAS_WIDTH / 2;
+            const centerY = CONFIG.CANVAS_HEIGHT / 2;
+            this.touchTarget = {
+                x: this.pigeon.x + (pos.x - centerX),
+                y: this.pigeon.y + (pos.y - centerY)
+            };
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!this.running || !this.touchTarget) return;
+            e.preventDefault();
+            const pos = getCanvasTouchPos(e);
+            const centerX = CONFIG.CANVAS_WIDTH / 2;
+            const centerY = CONFIG.CANVAS_HEIGHT / 2;
+            this.touchTarget = {
+                x: this.pigeon.x + (pos.x - centerX),
+                y: this.pigeon.y + (pos.y - centerY)
+            };
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            this.touchTarget = null;
+        });
+
+        canvas.addEventListener('touchcancel', () => {
+            this.touchTarget = null;
+        });
 
         // Prevent scrolling
         document.querySelector('.game-container').addEventListener('touchmove', (e) => {
@@ -180,6 +240,7 @@ const Game = {
         this.lastChestSpawn = 0;
         this.lastDiamondSpawn = 0;
         this.friendlyCatMode = false;
+        this.touchTarget = null;
         document.getElementById('peacefulBtn').classList.remove('enabled');
     },
 
@@ -340,10 +401,23 @@ const Game = {
 
         let dx = 0, dy = 0;
 
+        // Keyboard input
         if (this.keys['arrowup'] || this.keys['w']) dy -= 1;
         if (this.keys['arrowdown'] || this.keys['s']) dy += 1;
         if (this.keys['arrowleft'] || this.keys['a']) dx -= 1;
         if (this.keys['arrowright'] || this.keys['d']) dx += 1;
+
+        // Touch-to-move input
+        if (this.touchTarget && dx === 0 && dy === 0) {
+            dx = this.touchTarget.x - this.pigeon.x;
+            dy = this.touchTarget.y - this.pigeon.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            // Stop when close enough to target
+            if (dist < this.pigeon.speed * 2) {
+                this.touchTarget = null;
+                return;
+            }
+        }
 
         if (dx === 0 && dy === 0) return;
 
