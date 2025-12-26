@@ -295,6 +295,33 @@ canvas {
     box-shadow: none;
 }
 
+.peaceful-btn {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(145deg, #6bcb77, #4a9e54);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    box-shadow: 0 4px 15px rgba(107, 203, 119, 0.4);
+    transition: transform 0.1s;
+    margin-left: 10px;
+}
+
+.peaceful-btn:active, .peaceful-btn.active {
+    background: linear-gradient(145deg, #4a9e54, #3a7e44);
+    transform: scale(0.95);
+}
+
+.peaceful-btn.enabled {
+    background: linear-gradient(145deg, #90EE90, #6bcb77);
+    box-shadow: 0 4px 20px rgba(144, 238, 144, 0.6),
+                inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+
 /* Mobile Responsive */
 @media (max-width: 700px) {
     body {
@@ -379,5 +406,11 @@ canvas {
         width: 75px;
         height: 75px;
         font-size: 14px;
+    }
+
+    .peaceful-btn {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
     }
 }

@@ -52,6 +52,7 @@ const Game = {
 
             if (e.key.toLowerCase() === 'c' && this.running) {
                 this.friendlyCatMode = !this.friendlyCatMode;
+                document.getElementById('peacefulBtn').classList.toggle('enabled', this.friendlyCatMode);
             }
         });
 
@@ -105,6 +106,18 @@ const Game = {
         jumpBtn.addEventListener('mousedown', jumpStart);
         jumpBtn.addEventListener('mouseup', jumpEnd);
         jumpBtn.addEventListener('mouseleave', jumpEnd);
+
+        // Peaceful mode button
+        const peacefulBtn = document.getElementById('peacefulBtn');
+        const peacefulTap = (e) => {
+            e.preventDefault();
+            if (this.running) {
+                this.friendlyCatMode = !this.friendlyCatMode;
+                peacefulBtn.classList.toggle('enabled', this.friendlyCatMode);
+            }
+        };
+        peacefulBtn.addEventListener('touchstart', peacefulTap, { passive: false });
+        peacefulBtn.addEventListener('click', peacefulTap);
 
         // Prevent scrolling
         document.querySelector('.game-container').addEventListener('touchmove', (e) => {
@@ -166,6 +179,8 @@ const Game = {
         this.lastBreadcrumbSpawn = 0;
         this.lastChestSpawn = 0;
         this.lastDiamondSpawn = 0;
+        this.friendlyCatMode = false;
+        document.getElementById('peacefulBtn').classList.remove('enabled');
     },
 
     updateUI() {
