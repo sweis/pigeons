@@ -59,12 +59,80 @@ const Renderer = {
         this.ctx.fillStyle = `rgb(${r | 0}, ${g | 0}, ${b | 0})`;
         this.ctx.fillRect(screenX, screenY, CONFIG.TILE_SIZE + 1, CONFIG.TILE_SIZE + 1);
 
+        // Add texture based on tile type
+        this._drawTileTexture(screenX, screenY, tile.type, r, g, b);
+
         const centerX = screenX + CONFIG.TILE_SIZE / 2;
         const centerY = screenY + CONFIG.TILE_SIZE / 2;
 
         if (tile.hasFlower) this._drawFlower(centerX, centerY);
         if (tile.hasRock) this._drawRock(centerX, centerY);
         if (tile.hasTuft) this._drawGrassTuft(centerX, centerY);
+    },
+
+    _drawTileTexture(screenX, screenY, type, baseR, baseG, baseB) {
+        const size = CONFIG.TILE_SIZE;
+
+        if (type === 'grass' || type === 'darkgrass') {
+            // Draw small grass blade marks
+            const bladeColor = type === 'darkgrass'
+                ? `rgb(${baseR - 15 | 0}, ${baseG + 10 | 0}, ${baseB - 10 | 0})`
+                : `rgb(${baseR - 10 | 0}, ${baseG + 15 | 0}, ${baseB - 5 | 0})`;
+
+            this.ctx.strokeStyle = bladeColor;
+            this.ctx.lineWidth = 1;
+
+            for (let i = 0; i < 6; i++) {
+                const hx = hash(screenX + i, screenY, 20);
+                const hy = hash(screenX, screenY + i, 21);
+                const x = screenX + hx * size;
+                const y = screenY + hy * size;
+                const angle = hash(screenX + i, screenY + i, 22) * 0.6 - 0.3;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, y);
+                this.ctx.lineTo(x + Math.sin(angle) * 4, y - 4);
+                this.ctx.stroke();
+            }
+
+            // Add a few lighter spots
+            this.ctx.fillStyle = `rgba(${baseR + 20 | 0}, ${baseG + 25 | 0}, ${baseB + 10 | 0}, 0.4)`;
+            for (let i = 0; i < 3; i++) {
+                const hx = hash(screenX, screenY + i, 23);
+                const hy = hash(screenX + i, screenY, 24);
+                this.ctx.beginPath();
+                this.ctx.arc(screenX + hx * size, screenY + hy * size, 2, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        } else if (type === 'dirt') {
+            // Draw small pebbles and specks
+            for (let i = 0; i < 5; i++) {
+                const hx = hash(screenX + i, screenY, 25);
+                const hy = hash(screenX, screenY + i, 26);
+                const x = screenX + hx * size;
+                const y = screenY + hy * size;
+                const shade = hash(screenX + i, screenY + i, 27);
+
+                // Pebble
+                const pr = baseR + (shade > 0.5 ? 20 : -15);
+                const pg = baseG + (shade > 0.5 ? 15 : -10);
+                const pb = baseB + (shade > 0.5 ? 10 : -8);
+                this.ctx.fillStyle = `rgb(${pr | 0}, ${pg | 0}, ${pb | 0})`;
+                this.ctx.beginPath();
+                this.ctx.ellipse(x, y, 2 + shade, 1.5 + shade * 0.5, shade * Math.PI, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+
+            // Add some darker dirt specks
+            this.ctx.fillStyle = `rgba(${baseR - 25 | 0}, ${baseG - 20 | 0}, ${baseB - 15 | 0}, 0.5)`;
+            for (let i = 0; i < 4; i++) {
+                const hx = hash(screenX + i * 2, screenY, 28);
+                const hy = hash(screenX, screenY + i * 2, 29);
+                this.ctx.beginPath();
+                this.ctx.arc(screenX + hx * size, screenY + hy * size, 1, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+        }
     },
 
     _drawFlower(x, y) {
