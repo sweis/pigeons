@@ -121,6 +121,15 @@ canvas {
     color: #e94560;
 }
 
+/* Version */
+.version {
+    text-align: right;
+    color: #555;
+    font-size: 0.7rem;
+    margin-top: 10px;
+    padding-right: 5px;
+}
+
 /* Game Over Modal */
 .game-over {
     position: absolute;
