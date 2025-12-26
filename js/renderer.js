@@ -520,5 +520,55 @@ const Renderer = {
         }
 
         this.ctx.restore();
+    },
+
+    // ========================================
+    // Status Icons
+    // ========================================
+
+    drawStatusIcons(speedBoostRemaining, catEaterRemaining, friendlyMode) {
+        const x = 10;
+        let y = this.canvas.height - 15;
+        const spacing = 28;
+
+        this.ctx.font = 'bold 14px monospace';
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+
+        // Speed boost
+        if (speedBoostRemaining > 0) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(x - 2, y - 12, 60, 24);
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.font = '20px sans-serif';
+            this.ctx.fillText('⚡', x, y);
+            this.ctx.font = 'bold 14px monospace';
+            this.ctx.fillText(speedBoostRemaining + 's', x + 26, y);
+            y -= spacing;
+        }
+
+        // Cat eater mode
+        if (catEaterRemaining > 0) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(x - 2, y - 12, 60, 24);
+            this.ctx.fillStyle = '#FF00FF';
+            this.ctx.font = '20px sans-serif';
+            this.ctx.fillText('😈', x, y);
+            this.ctx.font = 'bold 14px monospace';
+            this.ctx.fillStyle = '#00FFFF';
+            this.ctx.fillText(catEaterRemaining + 's', x + 26, y);
+            y -= spacing;
+        }
+
+        // Friendly cat mode (no timer, just on/off)
+        if (friendlyMode) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(x - 2, y - 12, 45, 24);
+            this.ctx.font = '20px sans-serif';
+            this.ctx.fillText('😺', x, y);
+            this.ctx.font = 'bold 14px monospace';
+            this.ctx.fillStyle = '#90EE90';
+            this.ctx.fillText('ON', x + 26, y);
+        }
     }
 };

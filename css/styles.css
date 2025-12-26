@@ -164,62 +164,6 @@ canvas {
     color: #888;
 }
 
-.speed-boost {
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
-    color: #1a1a1a;
-    padding: 8px 20px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    display: none;
-    animation: pulse 0.5s ease-in-out infinite alternate;
-}
-
-.cat-eater {
-    position: absolute;
-    top: 45px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, #00ffff 0%, #ff00ff 100%);
-    color: #fff;
-    padding: 8px 20px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    display: none;
-    animation: rainbow 0.5s ease-in-out infinite alternate;
-    text-shadow: 0 0 5px #000;
-}
-
-.friendly-mode {
-    position: absolute;
-    top: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, #90EE90 0%, #32CD32 100%);
-    color: #1a1a1a;
-    padding: 8px 20px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    display: none;
-}
-
-/* Animations */
-@keyframes pulse {
-    from { transform: translateX(-50%) scale(1); }
-    to { transform: translateX(-50%) scale(1.05); }
-}
-
-@keyframes rainbow {
-    from { transform: translateX(-50%) scale(1); filter: hue-rotate(0deg); }
-    to { transform: translateX(-50%) scale(1.05); filter: hue-rotate(30deg); }
-}
-
 /* Touch Controls */
 .touch-controls {
     display: none;

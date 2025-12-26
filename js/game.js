@@ -160,7 +160,7 @@ const Game = {
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
-            if (!this.running || !this.touchTarget) return;
+            if (!this.running) return;
             e.preventDefault();
             const pos = getCanvasTouchPos(e);
             const centerX = CONFIG.CANVAS_WIDTH / 2;
@@ -171,13 +171,8 @@ const Game = {
             };
         }, { passive: false });
 
-        canvas.addEventListener('touchend', () => {
-            this.touchTarget = null;
-        });
-
-        canvas.addEventListener('touchcancel', () => {
-            this.touchTarget = null;
-        });
+        // Don't clear on touchend - let pigeon move to tapped location
+        // Target is cleared when pigeon reaches it
 
         // Prevent scrolling
         document.querySelector('.game-container').addEventListener('touchmove', (e) => {
@@ -461,33 +456,8 @@ const Game = {
     },
 
     updatePowerups(timestamp) {
-        const speedBoostEl = document.getElementById('speedBoost');
         const isBoosted = timestamp < this.pigeon.speedBoostEnd;
-
-        if (isBoosted) {
-            const remaining = Math.ceil((this.pigeon.speedBoostEnd - timestamp) / 1000);
-            speedBoostEl.textContent = `SPEED BOOST! ${remaining}s`;
-            speedBoostEl.style.display = 'block';
-            this.pigeon.speed = CONFIG.PIGEON_SPEED * 1.8;
-        } else {
-            speedBoostEl.style.display = 'none';
-            this.pigeon.speed = CONFIG.PIGEON_SPEED;
-        }
-
-        const catEaterEl = document.getElementById('catEater');
-        const canEatCats = timestamp < this.pigeon.catEaterEnd;
-
-        if (canEatCats) {
-            const remaining = Math.ceil((this.pigeon.catEaterEnd - timestamp) / 1000);
-            catEaterEl.textContent = `EAT CATS! ${remaining}s`;
-            catEaterEl.style.display = 'block';
-        } else {
-            catEaterEl.style.display = 'none';
-        }
-
-        // Friendly cat mode indicator
-        const friendlyEl = document.getElementById('friendlyMode');
-        friendlyEl.style.display = this.friendlyCatMode ? 'block' : 'none';
+        this.pigeon.speed = isBoosted ? CONFIG.PIGEON_SPEED * 1.8 : CONFIG.PIGEON_SPEED;
     },
 
     updateCats(timestamp) {
@@ -662,6 +632,12 @@ const Game = {
             const screen = Renderer.worldToScreen(entity.data.x, entity.data.y, camX, camY);
             this.drawEntity(entity, screen);
         });
+
+        // Draw status icons (bottom-left corner)
+        const now = performance.now();
+        const speedBoostRemaining = Math.max(0, Math.ceil((this.pigeon.speedBoostEnd - now) / 1000));
+        const catEaterRemaining = Math.max(0, Math.ceil((this.pigeon.catEaterEnd - now) / 1000));
+        Renderer.drawStatusIcons(speedBoostRemaining, catEaterRemaining, this.friendlyCatMode);
     },
 
     collectEntities(camX, camY) {
