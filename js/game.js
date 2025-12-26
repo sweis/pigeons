@@ -199,7 +199,7 @@ const Game = {
         Renderer.drawPigeon(300, 250, 1, false);
         Renderer.drawTree(150, 200);
         Renderer.drawTree(450, 300);
-        Renderer.drawBreadcrumb(350, 180);
+        Renderer.drawBreadcrumb(350, 180, 350, 180);
         Renderer.drawCat(200, 350, 1);
 
         Renderer.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -733,7 +733,7 @@ const Game = {
                 Renderer.drawTree(screen.x, screen.y, hasPigeon);
                 break;
             case 'breadcrumb':
-                Renderer.drawBreadcrumb(screen.x, screen.y);
+                Renderer.drawBreadcrumb(screen.x, screen.y, entity.data.x, entity.data.y);
                 break;
             case 'chest':
                 Renderer.drawChest(screen.x, screen.y);

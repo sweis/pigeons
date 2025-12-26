@@ -465,8 +465,8 @@ const Renderer = {
     // Collectibles
     // ========================================
 
-    drawBreadcrumb(screenX, screenY) {
-        const bob = Math.sin(performance.now() / 300 + screenX * 0.1) * 3;
+    drawBreadcrumb(screenX, screenY, worldX, worldY) {
+        const bob = Math.sin(performance.now() / 300 + worldX * 0.1) * 3;
         const y = screenY + bob;
 
         // Glow
@@ -475,9 +475,9 @@ const Renderer = {
         this.ctx.arc(screenX, y, 18, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Pick a bread emoji based on position (consistent per breadcrumb)
+        // Pick a bread emoji based on world position (consistent per breadcrumb)
         const breads = ['🥖', '🥐', '🥯', '🍞', '🥨'];
-        const index = Math.abs(Math.floor(screenX * 7 + screenY * 13)) % breads.length;
+        const index = Math.abs(Math.floor(worldX * 7 + worldY * 13)) % breads.length;
 
         this.ctx.font = '22px sans-serif';
         this.ctx.textAlign = 'center';
