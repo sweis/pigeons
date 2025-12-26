@@ -330,7 +330,7 @@ canvas {
     }
 
     .jump-indicator {
-        display: none;
+        display: none !important;
     }
 
     .game-over {
