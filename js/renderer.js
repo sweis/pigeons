@@ -638,5 +638,54 @@ const Renderer = {
             this.ctx.fillStyle = '#90EE90';
             this.ctx.fillText('ON', x + 26, y);
         }
+    },
+
+    drawFlyMeter(flyMeter, maxFlyTime, isFlying) {
+        const barWidth = 20;
+        const barHeight = 150;
+        const x = 15;
+        const y = 60;
+        const fillRatio = flyMeter / maxFlyTime;
+
+        // Background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(x - 3, y - 3, barWidth + 6, barHeight + 6);
+
+        // Empty bar
+        this.ctx.fillStyle = '#333';
+        this.ctx.fillRect(x, y, barWidth, barHeight);
+
+        // Filled portion (from bottom up)
+        const fillHeight = barHeight * fillRatio;
+        if (fillHeight > 0) {
+            // Gradient from yellow (full) to orange (empty)
+            const grad = this.ctx.createLinearGradient(x, y + barHeight, x, y);
+            grad.addColorStop(0, '#FFA500');
+            grad.addColorStop(0.5, '#FFCC00');
+            grad.addColorStop(1, '#FFFF00');
+
+            this.ctx.fillStyle = grad;
+            this.ctx.fillRect(x, y + barHeight - fillHeight, barWidth, fillHeight);
+        }
+
+        // Glow when flying
+        if (isFlying) {
+            this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(x - 2, y - 2, barWidth + 4, barHeight + 4);
+        }
+
+        // Fly icon at top
+        this.ctx.font = '18px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('🕊️', x + barWidth / 2, y - 12);
+
+        // Show seconds if flying
+        if (isFlying && flyMeter > 0) {
+            const seconds = Math.ceil(flyMeter / 1000);
+            this.ctx.font = 'bold 12px monospace';
+            this.ctx.fillStyle = '#FFFF00';
+            this.ctx.fillText(seconds + 's', x + barWidth / 2, y + barHeight + 15);
+        }
     }
 };

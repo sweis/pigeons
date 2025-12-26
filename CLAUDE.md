@@ -49,6 +49,7 @@ pigeons/
 - Private helper methods prefixed with `_`
 - Handles world-to-screen coordinate conversion
 - Status icons drawn in bottom-left corner (⚡ speed, 😈 eat cats, 😺 friendly)
+- Fly meter bar drawn on left side (🕊️ with vertical power bar)
 
 ### game.js
 - Game state management
@@ -66,13 +67,16 @@ pigeons/
 - Pigeon stays centered, world scrolls around it
 - Diagonal movement is normalized to prevent speed boost
 
-### Jumping
-- SPACE to jump (avoids cats, enters/exits trees)
-- Jump cooldown prevents spam
-- Can jump onto nearby trees for safety
+### Flying
+- SPACE to fly (avoids cats while airborne)
+- Flying is powered by a fly meter that charges when eating breadcrumbs
+- Each breadcrumb adds 1 second of fly time (max 30 seconds)
+- Fly meter displayed as vertical bar on the left side of screen
+- Flying onto/off trees is free (no meter cost)
+- Can fly onto nearby trees for safety
 
 ### Entities
-- **Breadcrumbs**: +10 points, spawn continuously
+- **Breadcrumbs**: +10 points, +1s fly time, spawn continuously
 - **Chests**: Speed boost for 20 seconds, +50 points
 - **Diamonds**: "Eat Cats" mode for 20 seconds, +100 points
 - **Cats**: Chase pigeon, flee during Eat Cats mode, can't climb trees
@@ -109,11 +113,11 @@ pigeons/
 - Single requestAnimationFrame loop
 
 ## Mobile Support
-- Touch controls: D-pad for movement, jump button, peaceful mode button
+- Touch controls: D-pad for movement, fly button, peaceful mode button
 - Touch-to-move: Tap anywhere on canvas to move pigeon there
 - Responsive CSS scales canvas to screen
 - Touch events use `passive: false` to prevent scrolling
-- Jump indicator hidden on mobile (uses button instead)
+- Fly indicator hidden on mobile (uses button instead)
 
 ## Future Ideas
 - Sound effects

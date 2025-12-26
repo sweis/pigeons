@@ -9,8 +9,11 @@ const CONFIG = {
 
     // Player settings
     PIGEON_SPEED: 3,
-    JUMP_DURATION: 400,
-    JUMP_COOLDOWN: 600,
+
+    // Flying settings
+    FLY_TIME_PER_BREAD: 1000,  // 1 second per breadcrumb
+    MAX_FLY_TIME: 30000,       // 30 seconds max
+    FLY_COOLDOWN: 300,         // Brief cooldown between fly activations
 
     // Enemy settings
     CAT_BASE_SPEED: 1.5,
