@@ -37,13 +37,6 @@ function randomAngle() {
 }
 
 /**
- * Get a random value in a range
- */
-function randomRange(min, max) {
-    return min + Math.random() * (max - min);
-}
-
-/**
  * Convert world coordinates to tile coordinates
  */
 function worldToTile(worldX, worldY) {
