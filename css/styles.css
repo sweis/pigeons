@@ -317,8 +317,7 @@ canvas {
     }
 
     .jump-indicator {
-        font-size: 0.75rem;
-        padding: 4px 10px;
+        display: none;
     }
 
     .game-over {
