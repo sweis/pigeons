@@ -472,19 +472,17 @@ const Renderer = {
         // Glow
         this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
         this.ctx.beginPath();
-        this.ctx.arc(screenX, y, 15, 0, Math.PI * 2);
+        this.ctx.arc(screenX, y, 18, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Crumb with gradient
-        const grad = this.ctx.createRadialGradient(screenX - 2, y - 2, 0, screenX, y, 8);
-        grad.addColorStop(0, '#FFF8DC');
-        grad.addColorStop(0.5, '#DEB887');
-        grad.addColorStop(1, '#B8860B');
+        // Pick a bread emoji based on position (consistent per breadcrumb)
+        const breads = ['🥖', '🥐', '🥯', '🍞', '🥨'];
+        const index = Math.abs(Math.floor(screenX * 7 + screenY * 13)) % breads.length;
 
-        this.ctx.fillStyle = grad;
-        this.ctx.beginPath();
-        this.ctx.arc(screenX, y, 8, 0, Math.PI * 2);
-        this.ctx.fill();
+        this.ctx.font = '22px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(breads[index], screenX, y);
     },
 
     drawChest(screenX, screenY) {
