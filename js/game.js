@@ -221,6 +221,13 @@ const Game = {
             this.spawnBreadcrumb();
         }
 
+        // Initialize spawn timers to current time to prevent immediate mass spawning
+        const now = performance.now();
+        this.lastCatSpawn = now;
+        this.lastBreadcrumbSpawn = now;
+        this.lastChestSpawn = now;
+        this.lastDiamondSpawn = now;
+
         this.running = true;
         requestAnimationFrame((t) => this.loop(t));
     },
