@@ -14,7 +14,7 @@ const Game = {
     chests: [],
     diamonds: [],
     keys: {},
-    touchTarget: null, // For touch-to-move on canvas
+    touchTarget: null,
 
     // Spawn timers
     lastCatSpawn: 0,
@@ -22,12 +22,28 @@ const Game = {
     lastChestSpawn: 0,
     lastDiamondSpawn: 0,
 
+    // DOM element cache
+    elements: {},
+
     // ========================================
     // Initialization
     // ========================================
 
     init() {
-        Renderer.init(document.getElementById('gameCanvas'));
+        // Cache DOM elements for performance
+        this.elements = {
+            canvas: document.getElementById('gameCanvas'),
+            score: document.getElementById('score'),
+            highScore: document.getElementById('highScore'),
+            finalScore: document.getElementById('finalScore'),
+            gameOver: document.getElementById('gameOver'),
+            startBtn: document.getElementById('startBtn'),
+            jumpIndicator: document.getElementById('jumpIndicator'),
+            jumpBtn: document.getElementById('jumpBtn'),
+            peacefulBtn: document.getElementById('peacefulBtn')
+        };
+
+        Renderer.init(this.elements.canvas);
         this.loadHighScore();
         this.setupKeyboardControls();
         this.setupTouchControls();
@@ -36,7 +52,7 @@ const Game = {
 
     loadHighScore() {
         this.highScore = parseInt(localStorage.getItem('pigeonHighScore')) || 0;
-        document.getElementById('highScore').textContent = this.highScore;
+        this.elements.highScore.textContent = this.highScore;
     },
 
     setupKeyboardControls() {
@@ -53,7 +69,7 @@ const Game = {
 
             if (e.key.toLowerCase() === 'c' && this.running) {
                 this.friendlyCatMode = !this.friendlyCatMode;
-                document.getElementById('peacefulBtn').classList.toggle('enabled', this.friendlyCatMode);
+                this.elements.peacefulBtn.classList.toggle('enabled', this.friendlyCatMode);
             }
         });
 
@@ -64,7 +80,7 @@ const Game = {
 
     setupTouchControls() {
         const dpadBtns = document.querySelectorAll('.dpad-btn');
-        const jumpBtn = document.getElementById('jumpBtn');
+        const { jumpBtn, peacefulBtn, canvas } = this.elements;
         const dirKeyMap = { up: 'w', down: 's', left: 'a', right: 'd' };
 
         dpadBtns.forEach(btn => {
@@ -109,7 +125,6 @@ const Game = {
         jumpBtn.addEventListener('mouseleave', jumpEnd);
 
         // Peaceful mode button
-        const peacefulBtn = document.getElementById('peacefulBtn');
         let peacefulTouched = false;
 
         peacefulBtn.addEventListener('touchstart', (e) => {
@@ -121,10 +136,10 @@ const Game = {
             }
         }, { passive: false });
 
-        peacefulBtn.addEventListener('click', (e) => {
+        peacefulBtn.addEventListener('click', () => {
             if (peacefulTouched) {
                 peacefulTouched = false;
-                return; // Ignore click after touch
+                return;
             }
             if (this.running) {
                 this.friendlyCatMode = !this.friendlyCatMode;
@@ -133,7 +148,6 @@ const Game = {
         });
 
         // Canvas touch-to-move
-        const canvas = document.getElementById('gameCanvas');
 
         const getCanvasTouchPos = (e) => {
             const touch = e.touches[0];
@@ -236,14 +250,14 @@ const Game = {
         this.lastDiamondSpawn = 0;
         this.friendlyCatMode = false;
         this.touchTarget = null;
-        document.getElementById('peacefulBtn').classList.remove('enabled');
+        this.elements.peacefulBtn.classList.remove('enabled');
     },
 
     updateUI() {
-        document.getElementById('score').textContent = this.score;
-        document.getElementById('gameOver').style.display = 'none';
-        document.getElementById('startBtn').textContent = 'Restart';
-        document.getElementById('jumpIndicator').style.display = 'block';
+        this.elements.score.textContent = this.score;
+        this.elements.gameOver.style.display = 'none';
+        this.elements.startBtn.textContent = 'Restart';
+        this.elements.jumpIndicator.style.display = 'block';
     },
 
     end() {
@@ -252,12 +266,12 @@ const Game = {
         if (this.score > this.highScore) {
             this.highScore = this.score;
             localStorage.setItem('pigeonHighScore', this.highScore);
-            document.getElementById('highScore').textContent = this.highScore;
+            this.elements.highScore.textContent = this.highScore;
         }
 
-        document.getElementById('finalScore').textContent = this.score;
-        document.getElementById('gameOver').style.display = 'block';
-        document.getElementById('jumpIndicator').style.display = 'none';
+        this.elements.finalScore.textContent = this.score;
+        this.elements.gameOver.style.display = 'block';
+        this.elements.jumpIndicator.style.display = 'none';
     },
 
     // ========================================
@@ -369,23 +383,22 @@ const Game = {
     },
 
     updateJumpIndicator(timestamp) {
-        const indicator = document.getElementById('jumpIndicator');
-        const jumpBtn = document.getElementById('jumpBtn');
+        const { jumpIndicator, jumpBtn } = this.elements;
         const canJump = timestamp - this.pigeon.lastJumpTime >= CONFIG.JUMP_COOLDOWN;
 
         if (this.pigeon.isJumping) {
-            indicator.textContent = 'JUMPING!';
-            indicator.className = 'jump-indicator';
+            jumpIndicator.textContent = 'JUMPING!';
+            jumpIndicator.className = 'jump-indicator';
             jumpBtn.textContent = 'JUMP!';
             jumpBtn.classList.remove('cooldown');
         } else if (this.pigeon.onTree) {
-            indicator.textContent = 'SPACE to Jump Off';
-            indicator.className = 'jump-indicator';
+            jumpIndicator.textContent = 'SPACE to Jump Off';
+            jumpIndicator.className = 'jump-indicator';
             jumpBtn.textContent = 'JUMP OFF';
             jumpBtn.classList.remove('cooldown');
         } else {
-            indicator.textContent = canJump ? 'SPACE to Jump' : 'Cooldown...';
-            indicator.className = 'jump-indicator' + (canJump ? '' : ' cooldown');
+            jumpIndicator.textContent = canJump ? 'SPACE to Jump' : 'Cooldown...';
+            jumpIndicator.className = 'jump-indicator' + (canJump ? '' : ' cooldown');
             jumpBtn.textContent = canJump ? 'JUMP' : '...';
             jumpBtn.classList.toggle('cooldown', !canJump);
         }
@@ -603,7 +616,7 @@ const Game = {
 
     addScore(points) {
         this.score += points;
-        document.getElementById('score').textContent = this.score;
+        this.elements.score.textContent = this.score;
     },
 
     // ========================================

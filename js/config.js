@@ -45,8 +45,5 @@ const CONFIG = {
     // Limits
     MAX_CHESTS: 2,
     MAX_DIAMONDS: 1,
-    INITIAL_BREADCRUMBS: 8,
-
-    // Debug
-    DEBUG: false
+    INITIAL_BREADCRUMBS: 8
 };
