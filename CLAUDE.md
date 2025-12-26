@@ -33,7 +33,7 @@ pigeons/
 - `hash(x, y, seed)` - Deterministic hash for procedural generation
 - `distance(x1, y1, x2, y2)` - Euclidean distance
 - `normalize(dx, dy)` - Vector normalization
-- `randomAngle()`, `randomRange(min, max)` - Random helpers
+- `randomAngle()` - Random angle in radians
 - `worldToTile()`, `tileToWorld()` - Coordinate conversion
 
 ### world.js
@@ -45,17 +45,19 @@ pigeons/
 
 ### renderer.js
 - All canvas 2D drawing operations
-- Organized by category: ground, water, trees, characters, collectibles
+- Organized by category: ground, water, trees, characters, collectibles, status icons
 - Private helper methods prefixed with `_`
 - Handles world-to-screen coordinate conversion
+- Status icons drawn in bottom-left corner (⚡ speed, 😈 eat cats, 😺 friendly)
 
 ### game.js
 - Game state management
-- Input handling (keyboard + touch)
+- Input handling (keyboard + touch + touch-to-move on canvas)
 - Entity spawning and despawning
 - Collision detection
 - Power-up effects
 - Main game loop (update → render)
+- DOM elements cached in `Game.elements` for performance
 
 ## Key Gameplay Mechanics
 
@@ -73,7 +75,7 @@ pigeons/
 - **Breadcrumbs**: +10 points, spawn continuously
 - **Chests**: Speed boost for 20 seconds, +50 points
 - **Diamonds**: "Eat Cats" mode for 20 seconds, +100 points
-- **Cats**: Chase pigeon, climb trees, flee during Eat Cats mode
+- **Cats**: Chase pigeon, flee during Eat Cats mode, can't climb trees
 
 ### World Generation
 - Infinite world using deterministic hash functions
@@ -100,15 +102,18 @@ pigeons/
 - Friendly mode (press C): Cats wander randomly and don't hurt the pigeon
 
 ### Performance Considerations
+- DOM elements cached at init to avoid repeated lookups
 - Ground tiles cached in Map
 - Trees/ponds use lazy generation with caching
 - Entities beyond DESPAWN_RADIUS are removed
 - Single requestAnimationFrame loop
 
 ## Mobile Support
-- Touch controls: D-pad for movement, jump button
+- Touch controls: D-pad for movement, jump button, peaceful mode button
+- Touch-to-move: Tap anywhere on canvas to move pigeon there
 - Responsive CSS scales canvas to screen
 - Touch events use `passive: false` to prevent scrolling
+- Jump indicator hidden on mobile (uses button instead)
 
 ## Future Ideas
 - Sound effects
